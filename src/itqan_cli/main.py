@@ -8,23 +8,24 @@ import sys
 
 import click
 
-from apps.package_manager.cli.client import RegistryClient, ResolvedAssetPayload
-from apps.package_manager.cli.downloader import AssetDownloader
-from apps.package_manager.cli.exceptions import ItqanCliError, RegistryApiError
-from apps.package_manager.cli.init_template import pick_samples, render_fallback, render_from_catalog
-from apps.package_manager.cli.lockfile import (
+from itqan_cli.client import RegistryClient, ResolvedAssetPayload
+from itqan_cli.downloader import AssetDownloader
+from itqan_cli.exceptions import ItqanCliError, RegistryApiError
+from itqan_cli.init_template import pick_samples, render_fallback, render_from_catalog
+from itqan_cli.lockfile import (
     AssetLockfile,
     LockfileEntry,
     LockfileState,
     evaluate_lockfile_state,
     serialize_lockfile,
 )
-from apps.package_manager.cli.manifest import parse_manifest_content, validate_assets_dir
+from itqan_cli.manifest import parse_manifest_content, validate_assets_dir
 
 DEFAULT_ASSETS_DIR = "assets"
 
 
 @click.group()
+@click.version_option(package_name="itqan-cli", prog_name="itqan")
 def cli() -> None:
     """Itqan Asset & Package Manager CLI."""
 

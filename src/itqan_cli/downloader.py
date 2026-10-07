@@ -10,8 +10,8 @@ import urllib.parse
 
 import requests
 
-from apps.package_manager.cli.client import ResolvedAssetPayload
-from apps.package_manager.cli.exceptions import DownloadError
+from itqan_cli.client import ResolvedAssetPayload
+from itqan_cli.exceptions import DownloadError
 
 # The version marker filename is reserved — a download URL must never produce
 # a basename matching this name, or it would silently overwrite version metadata.

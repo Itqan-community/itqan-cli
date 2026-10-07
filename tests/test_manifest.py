@@ -2,7 +2,7 @@
 
 import pytest
 
-from apps.package_manager.cli.exceptions import (
+from itqan_cli.exceptions import (
     InvalidConstraintSyntaxError,
     MissingRequiredFieldError,
     ScalarShorthandEntryError,
@@ -10,7 +10,7 @@ from apps.package_manager.cli.exceptions import (
     UnsupportedSchemaVersionError,
     YamlProfileViolationError,
 )
-from apps.package_manager.cli.manifest import parse_manifest_content
+from itqan_cli.manifest import parse_manifest_content
 
 
 def test_parse_manifest_content_where_valid_yaml_should_return_manifest_with_all_assets():

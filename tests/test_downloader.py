@@ -5,9 +5,9 @@ from pathlib import Path
 import pytest
 import responses
 
-from apps.package_manager.cli.client import ResolvedAssetPayload
-from apps.package_manager.cli.downloader import AssetDownloader
-from apps.package_manager.cli.exceptions import DownloadError
+from itqan_cli.client import ResolvedAssetPayload
+from itqan_cli.downloader import AssetDownloader
+from itqan_cli.exceptions import DownloadError
 
 
 @responses.activate

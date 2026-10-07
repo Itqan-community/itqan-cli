@@ -7,8 +7,8 @@ import requests
 import responses
 from responses import matchers
 
-from apps.package_manager.cli.main import cli
-from apps.package_manager.cli.manifest import parse_manifest_content
+from itqan_cli.main import cli
+from itqan_cli.manifest import parse_manifest_content
 
 REGISTRY = "https://cms.itqan.dev"
 

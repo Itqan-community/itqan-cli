@@ -6,16 +6,16 @@ from dataclasses import dataclass
 from enum import StrEnum
 from pathlib import Path
 
-from apps.package_manager.cli.exceptions import (
+from itqan_cli.exceptions import (
     LockfileError,
     YamlProfileViolationError,
 )
-from apps.package_manager.cli.manifest import (
+from itqan_cli.manifest import (
     AssetManifest,
     _StrictYamlLoader,
     load_manifest,
 )
-from apps.package_manager.cli.semver import (
+from itqan_cli.semver import (
     matches_constraint,
     parse_constraint,
     parse_semver,

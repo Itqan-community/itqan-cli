@@ -14,7 +14,7 @@ from yaml.reader import Reader
 from yaml.resolver import Resolver
 from yaml.scanner import Scanner
 
-from apps.package_manager.cli.exceptions import (
+from itqan_cli.exceptions import (
     DuplicateAssetEntryError,
     InvalidConstraintSyntaxError,
     MissingRequiredFieldError,
@@ -24,7 +24,7 @@ from apps.package_manager.cli.exceptions import (
     UnsupportedSchemaVersionError,
     YamlProfileViolationError,
 )
-from apps.package_manager.cli.semver import parse_constraint
+from itqan_cli.semver import parse_constraint
 
 
 @dataclass(frozen=True, slots=True)

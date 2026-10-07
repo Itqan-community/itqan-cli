@@ -8,8 +8,8 @@ from click.testing import CliRunner
 import pytest
 import responses
 
-from apps.package_manager.cli.exceptions import DuplicateAssetEntryError, UnknownFieldError
-from apps.package_manager.cli.lockfile import (
+from itqan_cli.exceptions import DuplicateAssetEntryError, UnknownFieldError
+from itqan_cli.lockfile import (
     AssetLockfile,
     LockfileEntry,
     LockfileState,
@@ -17,8 +17,8 @@ from apps.package_manager.cli.lockfile import (
     parse_lockfile_content,
     serialize_lockfile,
 )
-from apps.package_manager.cli.main import cli
-from apps.package_manager.cli.manifest import parse_manifest_content
+from itqan_cli.main import cli
+from itqan_cli.manifest import parse_manifest_content
 
 TWO_LANGUAGE_MANIFEST = b"""schema_version: 1
 
