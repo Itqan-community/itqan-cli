@@ -1,11 +1,14 @@
 """Tests for Package Registry HTTP Client."""
 
+from importlib.metadata import version
+
+from click.testing import CliRunner
 import pytest
 import responses
 
-from apps.package_manager.cli.client import RegistryClient
-from apps.package_manager.cli.exceptions import RegistryApiError
-from apps.package_manager.cli.main import install_command
+from itqan_cli.client import RegistryClient
+from itqan_cli.exceptions import RegistryApiError
+from itqan_cli.main import cli, install_command
 
 
 @responses.activate
@@ -107,3 +110,12 @@ def test_install_command_where_no_registry_url_given_should_default_to_productio
 
     # Assert
     assert option.default == "https://cms.itqan.dev"
+
+
+def test_cli_where_version_flag_given_should_print_package_version():
+    # Arrange / Act
+    result = CliRunner().invoke(cli, ["--version"])
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert result.output.strip() == f"itqan, version {version('itqan-cli')}"

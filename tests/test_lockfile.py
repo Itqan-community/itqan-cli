@@ -2,7 +2,7 @@
 
 from pathlib import Path
 
-from apps.package_manager.cli.lockfile import (
+from itqan_cli.lockfile import (
     AssetLockfile,
     LockfileEntry,
     LockfileState,

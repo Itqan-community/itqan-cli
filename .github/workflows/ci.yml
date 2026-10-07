@@ -1,0 +1,30 @@
+# Runs once this folder is its own repository (GitHub ignores workflows in
+# subfolders). Until then, run `uv run pytest` here locally.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Test
+        run: uv run --python ${{ matrix.python-version }} pytest -q
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+      - name: Build sdist and wheel
+        run: uv build
+      - name: Smoke-test the wheel
+        run: uv tool run --from ./dist/*.whl itqan --version

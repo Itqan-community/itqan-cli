@@ -6,7 +6,7 @@ from dataclasses import dataclass
 
 import requests
 
-from apps.package_manager.cli.exceptions import RegistryApiError
+from itqan_cli.exceptions import RegistryApiError
 
 
 @dataclass(frozen=True, slots=True)

@@ -4,8 +4,8 @@ from __future__ import annotations
 
 import json
 
-from apps.package_manager.cli.client import CatalogLanguage, CatalogPackage
-from apps.package_manager.cli.semver import parse_semver
+from itqan_cli.client import CatalogLanguage, CatalogPackage
+from itqan_cli.semver import parse_semver
 
 SAMPLE_COUNT = 3
 
