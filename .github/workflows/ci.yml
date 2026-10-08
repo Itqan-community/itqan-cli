@@ -1,5 +1,3 @@
-# Runs once this folder is its own repository (GitHub ignores workflows in
-# subfolders). Until then, run `uv run pytest` here locally.
 name: CI
 
 on:
