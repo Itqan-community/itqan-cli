@@ -65,14 +65,23 @@ def _describe(language: CatalogLanguage) -> str:
     return f"{language.language} ({source}{language.latest_version})"
 
 
-def _entry(name: str, version: str, *, asset: str | None = None, language: str | None = None) -> list[str]:
-    lines = [f"  {_quote(name)}:"]
+def entry_lines(
+    name: str, version: str, *, asset: str | None = None, language: str | None = None, indent: str = "  "
+) -> list[str]:
+    """One manifest entry under `assets:`, constrained to ``^version``; ``indent``
+    is the entry key's indentation, and its fields go one level deeper."""
+    lines = [f"{indent}{_quote(name)}:"]
     if asset is not None:
-        lines.append(f"    asset: {_quote(asset)}")
+        lines.append(f"{indent * 2}asset: {_quote(asset)}")
     if language is not None:
-        lines.append(f"    language: {_quote(language)}")
-    lines.append(f"    version: {_quote(_constraint(version))}")
+        lines.append(f"{indent * 2}language: {_quote(language)}")
+    lines.append(f"{indent * 2}version: {_quote(_constraint(version))}")
     return lines
+
+
+def render_header(assets_dir: str) -> str:
+    """The starter file up to and including `assets:`, with no entries."""
+    return _HEADER.format(assets_dir=_quote(assets_dir))
 
 
 def pick_samples(packages: list[CatalogPackage], count: int = SAMPLE_COUNT) -> list[CatalogPackage]:
@@ -94,16 +103,16 @@ def render_from_catalog(samples: list[CatalogPackage], assets_dir: str) -> str:
         lines.append(f"  # {name} — languages: {', '.join(_describe(lang) for lang in package.languages)}")
         source = next((lang for lang in package.languages if lang.is_source), None)
         first = source or package.languages[0]
-        lines += _entry(package.slug, first.latest_version, language=None if source else first.language)
+        lines += entry_lines(package.slug, first.latest_version, language=None if source else first.language)
         names.add(package.slug)
         other = next((lang for lang in package.languages if lang is not first), None)
         entry_name = f"{package.slug}-{other.language}" if other else None
         if other is not None and entry_name not in names:
             lines.append(f"  # The same asset in another language ({other.language}):")
-            lines += _entry(entry_name, other.latest_version, asset=package.slug, language=other.language)
+            lines += entry_lines(entry_name, other.latest_version, asset=package.slug, language=other.language)
             names.add(entry_name)
-    return _HEADER.format(assets_dir=_quote(assets_dir)) + "\n".join(lines) + "\n"
+    return render_header(assets_dir) + "\n".join(lines) + "\n"
 
 
 def render_fallback(assets_dir: str, reason: str) -> str:
-    return _HEADER.format(assets_dir=_quote(assets_dir)) + _FALLBACK_ENTRIES.format(reason=reason)
+    return render_header(assets_dir) + _FALLBACK_ENTRIES.format(reason=reason)

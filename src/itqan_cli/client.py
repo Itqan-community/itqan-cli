@@ -58,6 +58,17 @@ def _cli_version() -> str:
         return "unknown"
 
 
+def _error_detail(response: requests.Response) -> str:
+    """`: <reason>` from an error body like a 400 validation error, or ""."""
+    try:
+        body = response.json()
+        extra = body.get("extra") or []
+        reason = extra[0]["msg"] if extra and isinstance(extra[0], dict) else body.get("message")
+    except (ValueError, AttributeError, KeyError, TypeError):
+        return ""
+    return f": {reason}" if reason else ""
+
+
 class RegistryClient:
     """HTTP Client for Itqan Package Registry API."""
 
@@ -94,15 +105,67 @@ class RegistryClient:
             headers["X-API-Key"] = self.api_key
         return headers
 
-    def list_packages(self, *, open_access: bool | None = None, page_size: int = 50) -> list[CatalogPackage]:
+    def list_packages(
+        self,
+        *,
+        open_access: bool | None = None,
+        search: str | None = None,
+        category: str | None = None,
+        page_size: int = 50,
+    ) -> list[CatalogPackage]:
         """Call GET /packages/ for the first page of installable assets.
 
         Raises:
             RegistryApiError when the registry can't be reached or answers badly.
         """
+        packages, _ = self._catalog_page(
+            open_access=open_access, search=search, category=category, page=1, page_size=page_size
+        )
+        return packages
+
+    def list_all_packages(
+        self,
+        *,
+        open_access: bool | None = None,
+        search: str | None = None,
+        category: str | None = None,
+        page_size: int = 50,
+    ) -> list[CatalogPackage]:
+        """Every installable asset matching the filters, following GET /packages/ pagination.
+
+        Raises:
+            RegistryApiError when the registry can't be reached or answers badly.
+        """
+        packages: list[CatalogPackage] = []
+        page = 1
+        while True:
+            batch, count = self._catalog_page(
+                open_access=open_access, search=search, category=category, page=page, page_size=page_size
+            )
+            packages.extend(batch)
+            if not batch or len(packages) >= count:
+                return packages
+            page += 1
+
+    def _catalog_page(
+        self,
+        *,
+        open_access: bool | None,
+        search: str | None,
+        category: str | None,
+        page: int,
+        page_size: int,
+    ) -> tuple[list[CatalogPackage], int]:
+        """One page of GET /packages/ and the total number of matching assets."""
         params: dict[str, str] = {"page_size": str(page_size)}
+        if page > 1:
+            params["page"] = str(page)
         if open_access is not None:
             params["open_access"] = "true" if open_access else "false"
+        if search:
+            params["search"] = search
+        if category:
+            params["category"] = category
         try:
             response = self.session.get(
                 f"{self.base_url}/packages/", params=params, headers=self._headers(), timeout=self.timeout
@@ -111,11 +174,12 @@ class RegistryClient:
             raise RegistryApiError(f"Failed to connect to package registry at {self.base_url}: {exc}") from exc
         if response.status_code != 200:
             raise RegistryApiError(
-                f"Registry catalog request failed with status {response.status_code}",
+                f"Registry catalog request failed with status {response.status_code}{_error_detail(response)}",
                 status_code=response.status_code,
             )
         try:
-            return [
+            body = response.json()
+            packages = [
                 CatalogPackage(
                     slug=item["slug"],
                     name=item["name"],
@@ -131,8 +195,9 @@ class RegistryClient:
                         for lang in item["languages"]
                     ),
                 )
-                for item in response.json()["results"]
+                for item in body["results"]
             ]
+            return packages, int(body.get("count", len(packages)))
         except (ValueError, KeyError, TypeError) as exc:
             raise RegistryApiError(f"Failed to parse registry catalog response: {exc}") from exc
 

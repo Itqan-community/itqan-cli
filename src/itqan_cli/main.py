@@ -1,17 +1,19 @@
-"""Itqan CLI entrypoint implementing `itqan install` and `itqan sync`."""
+"""Itqan CLI entrypoint implementing `itqan install`, `sync`, `init` and `browse`."""
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 import sys
 
 import click
 
-from itqan_cli.client import DEFAULT_REGISTRY_URL, RegistryClient, ResolvedAssetPayload
+from itqan_cli import browse
+from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
-from itqan_cli.init_template import pick_samples, render_fallback, render_from_catalog
+from itqan_cli.init_template import pick_samples, render_fallback, render_from_catalog, render_header
 from itqan_cli.lockfile import (
     AssetLockfile,
     LockfileEntry,
@@ -19,7 +21,7 @@ from itqan_cli.lockfile import (
     evaluate_lockfile_state,
     serialize_lockfile,
 )
-from itqan_cli.manifest import parse_manifest_content, validate_assets_dir
+from itqan_cli.manifest import AssetManifest, load_manifest, parse_manifest_content, validate_assets_dir
 
 DEFAULT_ASSETS_DIR = "assets"
 
@@ -287,6 +289,142 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
     m_path.write_text(content, encoding="utf-8")
     click.echo(f"Created {m_path} with {len(samples)} sample asset(s).")
     click.echo("Edit it as needed, then run `itqan install` to download the assets.")
+
+
+@cli.command("browse")
+@click.argument("query", required=False)
+@click.option("--category", "-c", default=None, help="Only assets of this category (mushaf, tafsir, translation, ...).")
+@click.option(
+    "--manifest",
+    "-m",
+    "manifest_path",
+    default="itqan-assets.yaml",
+    show_default=True,
+    help="Manifest to add the picked assets to; created if missing.",
+)
+@click.option(
+    "--lockfile",
+    "-l",
+    "lockfile_path",
+    default="itqan-assets.lock",
+    show_default=True,
+    help="Lockfile used if you choose to install right away.",
+)
+@click.option(
+    "--interactive/--no-interactive",
+    default=None,
+    help="Pick assets to add (default when run in a terminal) or just print the list.",
+)
+@click.option(
+    "--json", "as_json", is_flag=True, default=False, help="Print the list as JSON (implies --no-interactive)."
+)
+@click.option(
+    "--registry-url",
+    envvar="ITQAN_REGISTRY_URL",
+    default=DEFAULT_REGISTRY_URL,
+    show_default=True,
+    help="URL of the Itqan Package Registry API.",
+)
+@click.option(
+    "--api-key",
+    envvar="ITQAN_API_KEY",
+    default=None,
+    help="API key; without one, assets that need access approval can't be picked.",
+)
+def browse_command(
+    query: str | None,
+    category: str | None,
+    manifest_path: str,
+    lockfile_path: str,
+    interactive: bool | None,
+    as_json: bool,
+    registry_url: str,
+    api_key: str | None,
+) -> None:
+    """Browse installable assets and add them to itqan-assets.yaml.
+
+    QUERY searches names, slugs, descriptions and publishers on the registry;
+    without it, every asset is listed and you can filter by typing in the picker.
+    """
+    if interactive is None:
+        interactive = sys.stdin.isatty() and sys.stdout.isatty()
+    if as_json:
+        interactive = False
+    m_path = Path(manifest_path)
+
+    try:
+        manifest = load_manifest(m_path) if m_path.exists() else None
+        targets = browse.manifest_targets(manifest)
+        client = RegistryClient(base_url=registry_url, api_key=api_key)
+        packages = client.list_all_packages(search=query, category=category)
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+
+    if as_json:
+        click.echo(json.dumps(browse.to_json(packages, targets), ensure_ascii=False, indent=2))
+        return
+    if not packages:
+        click.echo("No assets match." if query or category else "The registry has no installable assets yet.")
+        return
+    if not interactive:
+        click.echo(browse.render_table(packages, targets))
+        if targets:
+            click.echo(f"\n* already in {m_path}")
+        return
+
+    picked = browse.pick_packages(packages, targets, has_api_key=bool(api_key))
+    if not picked:
+        click.echo("Nothing added.")
+        return
+    picks: list[tuple[CatalogPackage, CatalogLanguage]] = []
+    for package in picked:
+        languages = browse.pick_languages(package, targets)
+        if languages is None:  # Ctrl-C
+            click.echo("Nothing added.")
+            return
+        picks += [(package, language) for language in languages]
+
+    try:
+        added = _add_to_manifest(m_path, manifest, picks)
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+    if not added:
+        click.echo("Nothing added.")
+        return
+    click.echo(f"Added {len(added)} asset(s) to {m_path}: {', '.join(added)}")
+
+    import questionary
+
+    if questionary.confirm("Run `itqan install` now?", default=True).ask():
+        install_command.callback(
+            manifest_path=str(m_path),
+            lockfile_path=lockfile_path,
+            assets_dir=None,
+            registry_url=registry_url,
+            api_key=api_key,
+            force=False,
+        )
+    else:
+        click.echo("Run `itqan install` when you're ready to download them.")
+
+
+def _add_to_manifest(
+    m_path: Path, manifest: AssetManifest | None, picks: list[tuple[CatalogPackage, CatalogLanguage]]
+) -> list[str]:
+    """Write the picked assets into the manifest (creating it if needed) and
+    return the new entry names."""
+    entries, warnings = browse.plan_entries(picks, manifest)
+    for warning in warnings:
+        click.echo(f"Warning: {warning}", err=True)
+    if not entries:
+        return []
+    content = m_path.read_text(encoding="utf-8") if manifest is not None else render_header(DEFAULT_ASSETS_DIR)
+    updated = browse.add_entries(content, entries)
+    m_path.parent.mkdir(parents=True, exist_ok=True)
+    m_path.write_text(updated, encoding="utf-8")
+    return [entry.name for entry in entries]
 
 
 if __name__ == "__main__":
