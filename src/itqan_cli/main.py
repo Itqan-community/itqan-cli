@@ -216,6 +216,8 @@ def install_command(
         sys.exit(exit_code)
     except ItqanCliError as exc:
         click.echo(f"Error: {exc.message}", err=True)
+        if isinstance(exc, RegistryApiError) and exc.status_code in (401, 403):
+            _explain_access(Path(manifest_path), registry_url, api_key)
         sys.exit(exc.exit_code)
     except Exception as exc:
         click.echo(f"Unexpected error: {exc}", err=True)
@@ -231,6 +233,19 @@ def _api_key(api_key: str | None, registry_url: str) -> str | None:
     except ItqanCliError as exc:
         click.echo(f"Warning: {exc.message}", err=True)
         return None
+
+
+def _explain_access(m_path: Path, registry_url: str, api_key: str | None) -> None:
+    """After a 401/403, name the manifest's assets the caller can't install
+    and where to request access. Best effort: stays quiet if it can't tell."""
+    try:
+        manifest = load_manifest(m_path)
+        catalog = {p.slug: p for p in RegistryClient(base_url=registry_url, api_key=api_key).list_all_packages()}
+    except ItqanCliError:
+        return
+    declared = {entry.asset or entry.slug for entry in manifest.assets.values()}
+    for line in browse.access_footer([catalog[slug] for slug in sorted(declared) if slug in catalog], bool(api_key)):
+        click.echo(line, err=True)
 
 
 # Alias: `itqan sync` runs `install`
@@ -283,7 +298,8 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
     try:
         validate_assets_dir(assets_dir)
         client = RegistryClient(base_url=registry_url, api_key=api_key)
-        samples = pick_samples(client.list_packages(open_access=None if api_key else True))
+        packages = client.list_packages(open_access=None if api_key else True)
+        samples = pick_samples([p for p in packages if browse.can_install(p, has_api_key=bool(api_key))])
         if samples:
             content = render_from_catalog(samples, assets_dir)
         else:
@@ -385,6 +401,8 @@ def browse_command(
         click.echo(browse.render_table(packages, targets))
         if targets:
             click.echo(f"\n* already in {m_path}")
+        for line in browse.access_footer(packages, has_api_key=bool(api_key)):
+            click.echo(line)
         return
 
     picked = browse.pick_packages(packages, targets, has_api_key=bool(api_key))

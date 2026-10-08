@@ -107,7 +107,11 @@ def test_list_all_packages_where_registry_rejects_filter_should_report_reason():
     responses.add(
         responses.GET,
         f"{REGISTRY}/packages/",
-        json={"error_name": "validation_error", "message": "Invalid Input", "extra": [{"msg": "Input should be 'mushaf'"}]},
+        json={
+            "error_name": "validation_error",
+            "message": "Invalid Input",
+            "extra": [{"msg": "Input should be 'mushaf'"}],
+        },
         status=400,
     )
 
@@ -226,7 +230,9 @@ def test_add_entries_where_assets_is_flow_mapping_should_raise():
 @responses.activate
 def test_browse_command_where_not_interactive_should_print_table_marking_declared(tmp_path: Path):
     # Arrange
-    (tmp_path / "itqan-assets.yaml").write_text('schema_version: 1\nassets:\n  mushaf-madinah:\n    version: "^1.0.0"\n')
+    (tmp_path / "itqan-assets.yaml").write_text(
+        'schema_version: 1\nassets:\n  mushaf-madinah:\n    version: "^1.0.0"\n'
+    )
     _mock_catalog([SINGLE, GATED])
 
     # Act
@@ -258,9 +264,7 @@ def test_browse_command_where_assets_picked_should_create_manifest_with_them(tmp
     # Arrange
     _mock_catalog([SINGLE, MULTILINGUAL])
     monkeypatch.setattr(browse, browse.pick_packages.__name__, lambda packages, targets, has_api_key: packages)
-    monkeypatch.setattr(
-        browse, browse.pick_languages.__name__, lambda package, targets: list(package.languages)
-    )
+    monkeypatch.setattr(browse, browse.pick_languages.__name__, lambda package, targets: list(package.languages))
     monkeypatch.setattr("questionary.confirm", lambda *args, **kwargs: type("Q", (), {"ask": lambda self: False})())
 
     # Act
@@ -323,7 +327,7 @@ def test_choice_description_where_gated_should_name_publisher_and_access():
     package = _package(dict(GATED, publisher_name="King Fahd Complex"))
 
     # Act
-    description = browse.choice_description(package)
+    description = browse.choice_description(package, has_api_key=False)
 
     # Assert
     assert description == "Hafs Font · King Fahd Complex · needs an API key"

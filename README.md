@@ -76,6 +76,14 @@ lock entry and folder (`public/quran/tafsir-jalalayn-en/`). The full format is s
 `itqan login` saves keys in `~/.config/itqan/credentials` (`%APPDATA%\itqan` on Windows; set
 `ITQAN_CONFIG_DIR` to move it). `--api-key` and `ITQAN_API_KEY`, for CI, take precedence over it.
 
+## Assets that need access approval
+
+Some publishers approve each developer before their assets can be downloaded. `itqan browse`
+lists these too, marked `request access`, `access pending` or `access rejected`, with a link to
+the asset's page on cms.itqan.dev where you request access. They can't be added until your
+request is approved; then run `itqan login` with your API key and they show as `granted`.
+`itqan install` says which assets in your manifest still need access, and where to ask.
+
 ## Development
 
 ```bash
