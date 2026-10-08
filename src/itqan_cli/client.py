@@ -47,6 +47,10 @@ class CatalogPackage:
     publisher_name: str | None = None
 
 
+# The public API (not the cms.itqan.dev website, which serves the web app).
+DEFAULT_REGISTRY_URL = "https://api.cms.itqan.dev"
+
+
 def _cli_version() -> str:
     try:
         return version("itqan-cli")
@@ -59,7 +63,7 @@ class RegistryClient:
 
     def __init__(
         self,
-        base_url: str = "https://cms.itqan.dev",
+        base_url: str = DEFAULT_REGISTRY_URL,
         api_key: str | None = None,
         timeout: float = 30.0,
         session: requests.Session | None = None,

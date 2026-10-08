@@ -101,7 +101,7 @@ def test_registry_client_where_no_base_url_given_should_default_to_production():
     client = RegistryClient()
 
     # Assert
-    assert client.base_url == "https://cms.itqan.dev"
+    assert client.base_url == "https://api.cms.itqan.dev"
 
 
 def test_install_command_where_no_registry_url_given_should_default_to_production():
@@ -109,7 +109,7 @@ def test_install_command_where_no_registry_url_given_should_default_to_productio
     option = next(param for param in install_command.params if param.name == "registry_url")
 
     # Assert
-    assert option.default == "https://cms.itqan.dev"
+    assert option.default == "https://api.cms.itqan.dev"
 
 
 def test_cli_where_version_flag_given_should_print_package_version():
@@ -124,7 +124,7 @@ def test_cli_where_version_flag_given_should_print_package_version():
 @responses.activate
 def test_resolve_manifest_where_called_should_send_installed_version_in_user_agent():
     # Arrange
-    responses.add(responses.POST, "https://cms.itqan.dev/packages/resolve/manifest/", json={"results": []})
+    responses.add(responses.POST, "https://api.cms.itqan.dev/packages/resolve/manifest/", json={"results": []})
 
     # Act
     RegistryClient().resolve_manifest({})

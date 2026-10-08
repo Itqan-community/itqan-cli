@@ -8,7 +8,7 @@ import sys
 
 import click
 
-from itqan_cli.client import RegistryClient, ResolvedAssetPayload
+from itqan_cli.client import DEFAULT_REGISTRY_URL, RegistryClient, ResolvedAssetPayload
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
 from itqan_cli.init_template import pick_samples, render_fallback, render_from_catalog
@@ -175,7 +175,7 @@ def _run_install(
 @click.option(
     "--registry-url",
     envvar="ITQAN_REGISTRY_URL",
-    default="https://cms.itqan.dev",
+    default=DEFAULT_REGISTRY_URL,
     show_default=True,
     help="URL of the Itqan Package Registry API.",
 )
@@ -243,7 +243,7 @@ cli.add_command(install_command, name="sync")
 @click.option(
     "--registry-url",
     envvar="ITQAN_REGISTRY_URL",
-    default="https://cms.itqan.dev",
+    default=DEFAULT_REGISTRY_URL,
     show_default=True,
     help="URL of the Itqan Package Registry API.",
 )
