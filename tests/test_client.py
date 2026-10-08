@@ -119,3 +119,15 @@ def test_cli_where_version_flag_given_should_print_package_version():
     # Assert
     assert result.exit_code == 0, result.output
     assert result.output.strip() == f"itqan, version {version('itqan-cli')}"
+
+
+@responses.activate
+def test_resolve_manifest_where_called_should_send_installed_version_in_user_agent():
+    # Arrange
+    responses.add(responses.POST, "https://cms.itqan.dev/packages/resolve/manifest/", json={"results": []})
+
+    # Act
+    RegistryClient().resolve_manifest({})
+
+    # Assert
+    assert responses.calls[0].request.headers["User-Agent"] == f"itqan-cli/{version('itqan-cli')}"
