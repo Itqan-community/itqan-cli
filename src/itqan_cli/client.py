@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from importlib.metadata import PackageNotFoundError, version
 
 import requests
 
@@ -46,6 +47,13 @@ class CatalogPackage:
     publisher_name: str | None = None
 
 
+def _cli_version() -> str:
+    try:
+        return version("itqan-cli")
+    except PackageNotFoundError:  # running from a source checkout that isn't installed
+        return "unknown"
+
+
 class RegistryClient:
     """HTTP Client for Itqan Package Registry API."""
 
@@ -76,7 +84,7 @@ class RegistryClient:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": "itqan-cli/1.0",
+            "User-Agent": f"itqan-cli/{_cli_version()}",
         }
         if self.api_key:
             headers["X-API-Key"] = self.api_key
