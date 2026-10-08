@@ -17,6 +17,8 @@ Requires Python 3.11+.
 pipx install itqan-cli        # or: uv tool install itqan-cli
 ```
 
+This installs the `itqan` command; `itqan-cli` is the same command under the package's name.
+
 ## Quick start
 
 ```bash
