@@ -1,5 +1,7 @@
 # itqan-cli
 
+**Itqan Quranic Asset Manager**
+
 Install and pin [Itqan](https://cms.itqan.dev) Quranic assets (mushafs, tafsirs, translations,
 recitations, fonts) in your project, the way a package manager does for code.
 

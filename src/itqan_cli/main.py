@@ -27,7 +27,10 @@ DEFAULT_ASSETS_DIR = "assets"
 @click.group()
 @click.version_option(package_name="itqan-cli", prog_name="itqan")
 def cli() -> None:
-    """Itqan Asset & Package Manager CLI."""
+    """Itqan Quranic Asset Manager.
+
+    Install and pin Itqan Quranic assets in your project.
+    """
 
 
 def _run_install(
