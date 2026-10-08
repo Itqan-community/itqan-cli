@@ -74,3 +74,5 @@ uv sync
 uv run pytest
 uv build
 ```
+
+Releases are published from version tags; see [RELEASING.md](RELEASING.md).
