@@ -4,7 +4,26 @@ version = "0.1.0"
 description = "Itqan Quranic Asset Manager: install and pin Itqan Quranic assets in your project."
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.11"
+authors = [
+    { name = "Hassaan Alansary", email = "hassaanalansary@yahoo.com" },
+    { name = "Itqan" },
+]
+keywords = ["itqan", "quran", "quranic", "tafsir", "mushaf", "assets", "package-manager", "cli"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Religion",
+    "Topic :: Software Development :: Build Tools",
+]
 dependencies = [
     "click>=8.1",
     "pyyaml>=6.0",
@@ -13,6 +32,12 @@ dependencies = [
 
 [project.scripts]
 itqan = "itqan_cli.main:cli"
+
+[project.urls]
+Homepage = "https://github.com/Itqan-community/itqan-cli"
+Repository = "https://github.com/Itqan-community/itqan-cli"
+Issues = "https://github.com/Itqan-community/itqan-cli/issues"
+"Manifest format" = "https://github.com/Itqan-community/cms-backend/blob/main/docs/ASSET_MANIFEST.md"
 
 [dependency-groups]
 dev = [
@@ -23,6 +48,11 @@ dev = [
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.sdist]
+# The source archive is for building and testing the package, not for
+# developing it: leave out CI, editor and lock files.
+exclude = [".github", ".pre-commit-config.yaml", "uv.lock", ".idea"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
