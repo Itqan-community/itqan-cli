@@ -9,7 +9,7 @@ import sys
 
 import click
 
-from itqan_cli import browse
+from itqan_cli import browse, credentials
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
@@ -203,6 +203,7 @@ def install_command(
     force: bool,
 ) -> None:
     """Install assets declared in itqan-assets.yaml."""
+    api_key = _api_key(api_key, registry_url)
     try:
         exit_code = _run_install(
             manifest_path=manifest_path,
@@ -219,6 +220,17 @@ def install_command(
     except Exception as exc:
         click.echo(f"Unexpected error: {exc}", err=True)
         sys.exit(1)
+
+
+def _api_key(api_key: str | None, registry_url: str) -> str | None:
+    """--api-key / ITQAN_API_KEY when given, else the key `itqan login` saved for this registry."""
+    if api_key:
+        return api_key
+    try:
+        return credentials.load_api_key(registry_url)
+    except ItqanCliError as exc:
+        click.echo(f"Warning: {exc.message}", err=True)
+        return None
 
 
 # Alias: `itqan sync` runs `install`
@@ -267,6 +279,7 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
         click.echo(f"Error: {m_path} already exists. Use --force to overwrite it.", err=True)
         sys.exit(1)
 
+    api_key = _api_key(api_key, registry_url)
     try:
         validate_assets_dir(assets_dir)
         client = RegistryClient(base_url=registry_url, api_key=api_key)
@@ -351,6 +364,7 @@ def browse_command(
     if as_json:
         interactive = False
     m_path = Path(manifest_path)
+    api_key = _api_key(api_key, registry_url)
 
     try:
         manifest = load_manifest(m_path) if m_path.exists() else None
@@ -428,6 +442,75 @@ def _add_to_manifest(
     m_path.parent.mkdir(parents=True, exist_ok=True)
     m_path.write_text(updated, encoding="utf-8")
     return [entry.name for entry in entries]
+
+
+# Where users create API keys in the CMS web app.
+API_KEYS_PAGE = "https://cms.itqan.dev/account/api-keys"
+
+
+@cli.command("login")
+@click.option(
+    "--registry-url",
+    envvar="ITQAN_REGISTRY_URL",
+    default=DEFAULT_REGISTRY_URL,
+    show_default=True,
+    help="Registry the key is for.",
+)
+@click.option("--api-key", default=None, help="The key; prompted for (hidden) when omitted.")
+def login_command(registry_url: str, api_key: str | None) -> None:
+    """Save your API key so commands can install assets you have approved access to.
+
+    The key is checked against the registry first, then saved for that registry
+    in your user config folder, readable only by you. --api-key or ITQAN_API_KEY
+    on another command still take precedence over the saved key.
+    """
+    if not api_key:
+        click.echo(f"Create an API key at {API_KEYS_PAGE}")
+        api_key = click.prompt("API key", hide_input=True).strip()
+    try:
+        account = RegistryClient(base_url=registry_url, api_key=api_key).whoami()
+    except RegistryApiError as exc:
+        if exc.status_code == 401:
+            click.echo(f"Error: {registry_url} did not accept that API key. Nothing was saved.", err=True)
+            sys.exit(1)
+        if exc.status_code != 404:
+            click.echo(f"Error: {exc.message}", err=True)
+            sys.exit(exc.exit_code)
+        account = None  # a registry without the key check: save the key unverified
+        click.echo(f"Warning: {registry_url} can't check API keys; saving it unverified.", err=True)
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+    try:
+        path = credentials.save_api_key(registry_url, api_key)
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+    if account is None:
+        who = ""
+    elif account.name and account.name != account.email:
+        who = f" as {account.name} <{account.email}>"
+    else:
+        who = f" as {account.email}"
+    click.echo(f"Logged in to {registry_url}{who}. Key saved in {path}.")
+
+
+@cli.command("logout")
+@click.option(
+    "--registry-url",
+    envvar="ITQAN_REGISTRY_URL",
+    default=DEFAULT_REGISTRY_URL,
+    show_default=True,
+    help="Registry whose saved key to remove.",
+)
+def logout_command(registry_url: str) -> None:
+    """Remove the API key `itqan login` saved for the registry."""
+    try:
+        removed = credentials.delete_api_key(registry_url)
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+    click.echo(f"Removed the saved key for {registry_url}." if removed else f"No key saved for {registry_url}.")
 
 
 if __name__ == "__main__":

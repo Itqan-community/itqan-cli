@@ -60,6 +60,8 @@ lock entry and folder (`public/quran/tafsir-jalalayn-en/`). The full format is s
 |---|---|
 | `itqan init` | Create `itqan-assets.yaml` from the registry's catalog (commented examples when offline). `--assets-dir`, `--force`. |
 | `itqan browse [QUERY]` | Search the registry's catalog and pick assets to add to `itqan-assets.yaml` (created if missing), then optionally install them. Type in the picker to filter further. `--category`, `--no-interactive` (print a table; the default outside a terminal), `--json`. |
+| `itqan login` | Save your API key (create one at [cms.itqan.dev/account/api-keys](https://cms.itqan.dev/account/api-keys)). The key is checked first, then saved for that registry, readable only by you. `--api-key` to pass it without the prompt. |
+| `itqan logout` | Remove the saved key. |
 | `itqan install` | Resolve, download and lock. Uses the lockfile's exact versions when it is up to date; `--force` re-resolves. |
 | `itqan sync` | Same as `install`. |
 | `itqan --version` | Print the CLI version. |
@@ -69,7 +71,10 @@ lock entry and folder (`public/quran/tafsir-jalalayn-en/`). The full format is s
 | Option | Environment variable | Default |
 |---|---|---|
 | `--registry-url` | `ITQAN_REGISTRY_URL` | `https://api.cms.itqan.dev` |
-| `--api-key` | `ITQAN_API_KEY` | none; needed only for assets that require access approval |
+| `--api-key` | `ITQAN_API_KEY` | the key saved by `itqan login` for the registry, if any |
+
+`itqan login` saves keys in `~/.config/itqan/credentials` (`%APPDATA%\itqan` on Windows; set
+`ITQAN_CONFIG_DIR` to move it). `--api-key` and `ITQAN_API_KEY`, for CI, take precedence over it.
 
 ## Development
 

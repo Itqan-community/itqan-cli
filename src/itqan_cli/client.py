@@ -47,6 +47,14 @@ class CatalogPackage:
     publisher_name: str | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class Account:
+    """The owner of an API key, from GET /packages/me/."""
+
+    name: str
+    email: str
+
+
 # The public API (not the cms.itqan.dev website, which serves the web app).
 DEFAULT_REGISTRY_URL = "https://api.cms.itqan.dev"
 
@@ -200,6 +208,28 @@ class RegistryClient:
             return packages, int(body.get("count", len(packages)))
         except (ValueError, KeyError, TypeError) as exc:
             raise RegistryApiError(f"Failed to parse registry catalog response: {exc}") from exc
+
+    def whoami(self) -> Account:
+        """Call GET /packages/me/ to check the API key.
+
+        Raises:
+            RegistryApiError with status_code 401 when the key is missing or
+                invalid, 404 when the registry has no such endpoint.
+        """
+        try:
+            response = self.session.get(f"{self.base_url}/packages/me/", headers=self._headers(), timeout=self.timeout)
+        except requests.RequestException as exc:
+            raise RegistryApiError(f"Failed to connect to package registry at {self.base_url}: {exc}") from exc
+        if response.status_code != 200:
+            raise RegistryApiError(
+                f"API key check failed with status {response.status_code}{_error_detail(response)}",
+                status_code=response.status_code,
+            )
+        try:
+            body = response.json()
+            return Account(name=body["name"], email=body["email"])
+        except (ValueError, KeyError, TypeError) as exc:
+            raise RegistryApiError(f"Failed to parse API key check response: {exc}") from exc
 
     def resolve_manifest(self, assets: dict[str, str | dict[str, str]]) -> list[ResolvedAssetPayload]:
         """Call POST /packages/resolve/manifest/ to resolve manifest constraints.
