@@ -3,7 +3,7 @@
 **Itqan Quranic Asset Manager**
 
 Install and pin [Itqan](https://cms.itqan.dev) Quranic assets (mushafs, tafsirs, translations,
-recitations, fonts) in your project, the way a package manager does for code.
+fonts) in your project, the way a package manager does for code.
 
 You declare the assets you use and the versions you accept in `itqan-assets.yaml`. The CLI
 resolves them against the Itqan registry, downloads them, and records the exact versions in
@@ -21,6 +21,7 @@ pipx install itqan-cli        # or: uv tool install itqan-cli
 
 ```bash
 itqan init        # writes itqan-assets.yaml with a few real assets as examples
+itqan browse      # search the catalog and add more assets to it
 itqan install     # downloads them and writes itqan-assets.lock
 ```
 
@@ -56,6 +57,7 @@ lock entry and folder (`public/quran/tafsir-jalalayn-en/`). The full format is s
 | Command | What it does |
 |---|---|
 | `itqan init` | Create `itqan-assets.yaml` from the registry's catalog (commented examples when offline). `--assets-dir`, `--force`. |
+| `itqan browse [QUERY]` | Search the registry's catalog and pick assets to add to `itqan-assets.yaml` (created if missing), then optionally install them. Type in the picker to filter further. `--category`, `--no-interactive` (print a table; the default outside a terminal), `--json`. |
 | `itqan install` | Resolve, download and lock. Uses the lockfile's exact versions when it is up to date; `--force` re-resolves. |
 | `itqan sync` | Same as `install`. |
 | `itqan --version` | Print the CLI version. |
