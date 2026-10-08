@@ -143,6 +143,49 @@ def _latest_text(package: CatalogPackage) -> str:
     return first.latest_version if first else "-"
 
 
+# What each catalog `access` value means for the user.
+_ACCESS_LABELS = {
+    "open": "open access",
+    "granted": "access granted",
+    "pending": "access pending",
+    "rejected": "access rejected",
+    "none": "request access",
+}
+
+
+def can_install(package: CatalogPackage, has_api_key: bool) -> bool:
+    """Whether the registry will serve this package to the caller."""
+    if package.access is None:  # a registry that only reports open / gated
+        return package.is_open_access or has_api_key
+    return package.access in ("open", "granted")
+
+
+def access_label(package: CatalogPackage) -> str:
+    if package.access is None:
+        return "open access" if package.is_open_access else "needs an API key"
+    return _ACCESS_LABELS.get(package.access, package.access)
+
+
+def _access_column(package: CatalogPackage) -> str:
+    if package.access is None:
+        return "open" if package.is_open_access else "api-key"
+    return "request" if package.access == "none" else package.access
+
+
+def access_footer(packages: list[CatalogPackage], has_api_key: bool) -> list[str]:
+    """Where to request access to the listed assets the caller can't install,
+    and, without a key, how to use one."""
+    blocked = [p for p in packages if not can_install(p, has_api_key)]
+    if not blocked:
+        return []
+    width = max(len(p.slug) for p in blocked)
+    lines = ["", "Request access on each asset's page:"]
+    lines += [f"  {p.slug.ljust(width)}  {p.access_request_url or '-'}  ({access_label(p)})" for p in blocked]
+    if not has_api_key:
+        lines.append("Already approved? Run `itqan login` to use your API key.")
+    return lines
+
+
 def render_table(packages: list[CatalogPackage], targets: set[Target]) -> str:
     """Plain-text listing for pipes, CI and `--no-interactive`."""
     header = ("SLUG", "CATEGORY", "LANGUAGES", "LATEST", "ACCESS", "NAME")
@@ -152,15 +195,13 @@ def render_table(packages: list[CatalogPackage], targets: set[Target]) -> str:
             package.category,
             _languages_text(package),
             _latest_text(package),
-            "open" if package.is_open_access else "api-key",
+            _access_column(package),
             " ".join(package.name.split()),
         )
         for package in packages
     ]
     widths = [max(len(row[col]) for row in rows) for col in range(len(header) - 1)]
-    return "\n".join(
-        "  ".join([cell.ljust(width) for cell, width in zip(row, widths)] + [row[-1]]) for row in rows
-    )
+    return "\n".join("  ".join([cell.ljust(width) for cell, width in zip(row, widths)] + [row[-1]]) for row in rows)
 
 
 def to_json(packages: list[CatalogPackage], targets: set[Target]) -> list[dict]:
@@ -170,6 +211,8 @@ def to_json(packages: list[CatalogPackage], targets: set[Target]) -> list[dict]:
             "name": package.name,
             "category": package.category,
             "is_open_access": package.is_open_access,
+            "access": package.access,
+            "access_request_url": package.access_request_url,
             "publisher_name": package.publisher_name,
             "languages": [
                 {
@@ -208,12 +251,16 @@ def choice_titles(packages: list[CatalogPackage], reasons: list[str | None], max
     return titles
 
 
-def choice_description(package: CatalogPackage) -> str:
+def choice_description(package: CatalogPackage, has_api_key: bool) -> str:
     """Shown under the list for the highlighted row."""
     parts = [" ".join(package.name.split())]
     if package.publisher_name:
         parts.append(package.publisher_name)
-    parts.append("open access" if package.is_open_access else "needs an API key")
+    parts.append(access_label(package))
+    if not can_install(package, has_api_key) and package.access_request_url:
+        parts.append(f"request at {package.access_request_url}")
+        if not has_api_key:
+            parts.append("approved? run `itqan login`")
     return " · ".join(parts)
 
 
@@ -221,8 +268,8 @@ def unavailable_reason(package: CatalogPackage, targets: set[Target], has_api_ke
     """Why a package can't be picked, or None when it can."""
     if not missing_languages(targets, package):
         return "in manifest"
-    if not package.is_open_access and not has_api_key:
-        return "needs an API key"
+    if not can_install(package, has_api_key):
+        return access_label(package)
     return None
 
 
@@ -236,7 +283,9 @@ def pick_packages(
     reasons = [unavailable_reason(package, targets, has_api_key) for package in packages]
     titles = choice_titles(packages, reasons, shutil.get_terminal_size().columns)
     choices = [
-        questionary.Choice(title=title, value=package, disabled=reason, description=choice_description(package))
+        questionary.Choice(
+            title=title, value=package, disabled=reason, description=choice_description(package, has_api_key)
+        )
         for package, title, reason in zip(packages, titles, reasons)
     ]
     question = questionary.checkbox(

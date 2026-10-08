@@ -45,6 +45,10 @@ class CatalogPackage:
     is_open_access: bool
     languages: tuple[CatalogLanguage, ...]
     publisher_name: str | None = None
+    # The caller's access (open | granted | pending | rejected | none); None from
+    # a registry that predates it, which only says whether the asset is open.
+    access: str | None = None
+    access_request_url: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -194,6 +198,8 @@ class RegistryClient:
                     category=item["category"],
                     is_open_access=item["is_open_access"],
                     publisher_name=item.get("publisher_name"),
+                    access=item.get("access"),
+                    access_request_url=item.get("access_request_url"),
                     languages=tuple(
                         CatalogLanguage(
                             language=lang["language"],
@@ -313,7 +319,7 @@ class RegistryClient:
         if status_code == 401:
             friendly_msg = f"Authentication required (API key missing or invalid): {message}"
         elif status_code == 403:
-            friendly_msg = f"Access denied for requested assets (license required): {message}"
+            friendly_msg = f"Access denied for requested assets (approved access required): {message}"
         elif status_code == 404:
             friendly_msg = f"Asset or version not found in registry: {message}"
         elif status_code == 422:
