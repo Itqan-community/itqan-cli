@@ -64,7 +64,7 @@ lock entry and folder (`public/quran/tafsir-jalalayn-en/`). The full format is s
 
 | Option | Environment variable | Default |
 |---|---|---|
-| `--registry-url` | `ITQAN_REGISTRY_URL` | `https://cms.itqan.dev` |
+| `--registry-url` | `ITQAN_REGISTRY_URL` | `https://api.cms.itqan.dev` |
 | `--api-key` | `ITQAN_API_KEY` | none; needed only for assets that require access approval |
 
 ## Development
