@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import re
+import shutil
 
 from itqan_cli.client import CatalogLanguage, CatalogPackage
 from itqan_cli.exceptions import ManifestError
@@ -180,13 +181,36 @@ def to_json(packages: list[CatalogPackage], targets: set[Target]) -> list[dict]:
     ]
 
 
-def choice_title(package: CatalogPackage, width: int) -> str:
-    access = "" if package.is_open_access else "  [api key]"
-    return (
-        f"{package.slug.ljust(width)}  {package.category.ljust(11)}  "
-        f"{_languages_text(package).ljust(8)}  {_latest_text(package).ljust(9)}  "
-        f"{' '.join(package.name.split())}{access}"
-    )
+# Room the picker takes before a row's title: pointer, checkbox and spaces.
+_ROW_PREFIX = 5
+
+
+def _truncate(text: str, width: int) -> str:
+    return text if len(text) <= width else text[: max(width - 1, 0)] + "…"
+
+
+def choice_titles(packages: list[CatalogPackage], reasons: list[str | None], max_width: int) -> list[str]:
+    """One aligned row per package that fits in ``max_width`` columns, leaving
+    room for the picker's ` (<reason>)` note on rows that can't be picked."""
+    columns = [
+        (package.slug, package.category, _languages_text(package), _latest_text(package)) for package in packages
+    ]
+    widths = [max(len(row[col]) for row in columns) for col in range(4)]
+    titles = []
+    for package, row, reason in zip(packages, columns, reasons):
+        prefix = "  ".join(cell.ljust(width) for cell, width in zip(row, widths)) + "  "
+        room = max_width - _ROW_PREFIX - len(prefix) - (len(reason) + 3 if reason else 0)
+        titles.append(prefix + _truncate(" ".join(package.name.split()), room))
+    return titles
+
+
+def choice_description(package: CatalogPackage) -> str:
+    """Shown under the list for the highlighted row."""
+    parts = [" ".join(package.name.split())]
+    if package.publisher_name:
+        parts.append(package.publisher_name)
+    parts.append("open access" if package.is_open_access else "needs an API key")
+    return " · ".join(parts)
 
 
 def unavailable_reason(package: CatalogPackage, targets: set[Target], has_api_key: bool) -> str | None:
@@ -204,14 +228,11 @@ def pick_packages(
     """Fuzzy multi-select over the catalog; None when the user cancels."""
     import questionary
 
-    width = max(len(package.slug) for package in packages)
+    reasons = [unavailable_reason(package, targets, has_api_key) for package in packages]
+    titles = choice_titles(packages, reasons, shutil.get_terminal_size().columns)
     choices = [
-        questionary.Choice(
-            title=choice_title(package, width),
-            value=package,
-            disabled=unavailable_reason(package, targets, has_api_key),
-        )
-        for package in packages
+        questionary.Choice(title=title, value=package, disabled=reason, description=choice_description(package))
+        for package, title, reason in zip(packages, titles, reasons)
     ]
     return questionary.checkbox(
         "Pick assets to add (type to search, space to select, enter to confirm):",
@@ -219,6 +240,7 @@ def pick_packages(
         use_search_filter=True,
         use_jk_keys=False,
         instruction="",
+        erase_when_done=True,  # the caller prints a one-line summary instead of the picked rows
     ).ask()
 
 
@@ -238,4 +260,4 @@ def pick_languages(package: CatalogPackage, targets: set[Target]) -> list[Catalo
         )
         for lang in available
     ]
-    return questionary.checkbox(f"{package.slug}: which languages?", choices=choices).ask()
+    return questionary.checkbox(f"{package.slug}: which languages?", choices=choices, erase_when_done=True).ask()

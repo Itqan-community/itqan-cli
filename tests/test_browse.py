@@ -301,3 +301,30 @@ def test_browse_command_where_no_match_should_say_so(tmp_path: Path):
     assert result.exit_code == 0, result.output
     assert "No assets match." in result.output
 
+
+def test_choice_titles_where_name_is_long_should_fit_width_with_room_for_reason():
+    # Arrange
+    long_name = dict(GATED, name="A very long asset name that would never fit in a narrow terminal window")
+    packages = [_package(SINGLE), _package(long_name)]
+    reasons = [None, "needs an API key"]
+
+    # Act
+    titles = browse.choice_titles(packages, reasons, max_width=80)
+
+    # Assert
+    assert titles[0].endswith("Mushaf Madinah")
+    assert titles[1].endswith("…")
+    assert len(titles[1]) + len(" (needs an API key)") + 5 <= 80
+    assert titles[0].index("mushaf ") == titles[1].index("font ")  # columns line up
+
+
+def test_choice_description_where_gated_should_name_publisher_and_access():
+    # Arrange
+    package = _package(dict(GATED, publisher_name="King Fahd Complex"))
+
+    # Act
+    description = browse.choice_description(package)
+
+    # Assert
+    assert description == "Hafs Font · King Fahd Complex · needs an API key"
+

@@ -377,12 +377,15 @@ def browse_command(
     if not picked:
         click.echo("Nothing added.")
         return
+    click.echo(f"Picked: {', '.join(package.slug for package in picked)}")
     picks: list[tuple[CatalogPackage, CatalogLanguage]] = []
     for package in picked:
         languages = browse.pick_languages(package, targets)
         if languages is None:  # Ctrl-C
             click.echo("Nothing added.")
             return
+        if len(browse.missing_languages(targets, package)) > 1:
+            click.echo(f"  {package.slug}: {', '.join(lang.language or 'source' for lang in languages) or 'none'}")
         picks += [(package, language) for language in languages]
 
     try:
