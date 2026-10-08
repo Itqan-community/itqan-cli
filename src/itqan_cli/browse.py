@@ -9,11 +9,15 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 import shutil
+from typing import TYPE_CHECKING, Any
 
 from itqan_cli.client import CatalogLanguage, CatalogPackage
 from itqan_cli.exceptions import ManifestError
 from itqan_cli.init_template import entry_lines
 from itqan_cli.manifest import AssetManifest, parse_manifest_content
+
+if TYPE_CHECKING:
+    from questionary import Question
 
 # (asset slug, language code); None stands for the asset's source language.
 Target = tuple[str, str | None]
@@ -223,9 +227,10 @@ def unavailable_reason(package: CatalogPackage, targets: set[Target], has_api_ke
 
 
 def pick_packages(
-    packages: list[CatalogPackage], targets: set[Target], has_api_key: bool
+    packages: list[CatalogPackage], targets: set[Target], has_api_key: bool, **prompt_kwargs: Any
 ) -> list[CatalogPackage] | None:
-    """Fuzzy multi-select over the catalog; None when the user cancels."""
+    """Fuzzy multi-select over the catalog; None when the user cancels.
+    ``prompt_kwargs`` go to the prompt_toolkit Application (tests pass input/output)."""
     import questionary
 
     reasons = [unavailable_reason(package, targets, has_api_key) for package in packages]
@@ -234,14 +239,41 @@ def pick_packages(
         questionary.Choice(title=title, value=package, disabled=reason, description=choice_description(package))
         for package, title, reason in zip(packages, titles, reasons)
     ]
-    return questionary.checkbox(
-        "Pick assets to add (type to search, space to select, enter to confirm):",
+    question = questionary.checkbox(
+        "Pick assets (type to search, enter to add, space to select several):",
         choices=choices,
         use_search_filter=True,
         use_jk_keys=False,
         instruction="",
         erase_when_done=True,  # the caller prints a one-line summary instead of the picked rows
-    ).ask()
+        **prompt_kwargs,
+    )
+    _enter_picks_highlighted(question)
+    return question.ask()
+
+
+def _enter_picks_highlighted(question: Question) -> None:
+    """Make Enter with nothing selected pick the highlighted row, instead of
+    confirming an empty selection. prompt_toolkit runs the last binding added
+    for a key, so this one replaces the checkbox's own Enter handler."""
+    from prompt_toolkit.key_binding import KeyBindings
+    from prompt_toolkit.keys import Keys
+    from questionary.prompts.common import InquirerControl
+
+    control = next(c for c in question.application.layout.find_all_controls() if isinstance(c, InquirerControl))
+    bindings = question.application.key_bindings
+    assert isinstance(bindings, KeyBindings)
+
+    @bindings.add(Keys.ControlM, eager=True)
+    def _(event: Any) -> None:
+        pointed = control.get_pointed_at()
+        # A search that matches nothing shows the whole list again; don't pick from it.
+        no_match = control.search_filter and not control.found_in_search
+        if not control.selected_options and not no_match and not pointed.disabled:
+            control.selected_options.append(pointed.value)
+        control.submission_attempted = True
+        control.is_answered = True
+        event.app.exit(result=[choice.value for choice in control.get_selected_values()])
 
 
 def pick_languages(package: CatalogPackage, targets: set[Target]) -> list[CatalogLanguage] | None:

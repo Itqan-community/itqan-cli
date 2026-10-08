@@ -328,3 +328,55 @@ def test_choice_description_where_gated_should_name_publisher_and_access():
     # Assert
     assert description == "Hafs Font · King Fahd Complex · needs an API key"
 
+
+def _run_picker(keys: str) -> list[CatalogPackage] | None:
+    from prompt_toolkit.input import create_pipe_input
+    from prompt_toolkit.output import DummyOutput
+
+    with create_pipe_input() as pipe:
+        pipe.send_text(keys)
+        return browse.pick_packages(
+            [_package(SINGLE), _package(MULTILINGUAL), _package(GATED)],
+            set(),
+            has_api_key=False,
+            input=pipe,
+            output=DummyOutput(),
+        )
+
+
+def test_pick_packages_where_enter_pressed_with_nothing_selected_should_pick_highlighted():
+    # Arrange
+    down_arrow = "\x1b[B"
+
+    # Act
+    picked = _run_picker(down_arrow + "\r")
+
+    # Assert
+    assert [package.slug for package in picked] == ["tafsir-jalalayn"]
+
+
+def test_pick_packages_where_rows_selected_with_space_should_return_only_those():
+    # Arrange
+    down_arrow = "\x1b[B"
+
+    # Act
+    picked = _run_picker(" " + down_arrow + " " + "\r")
+
+    # Assert
+    assert [package.slug for package in picked] == ["mushaf-madinah", "tafsir-jalalayn"]
+
+
+def test_pick_packages_where_search_matches_nothing_should_pick_nothing():
+    # Arrange / Act
+    picked = _run_picker("zzz\r")
+
+    # Assert
+    assert picked == []
+
+
+def test_pick_packages_where_search_given_should_pick_first_match():
+    # Arrange / Act
+    picked = _run_picker("jalal\r")
+
+    # Assert
+    assert [package.slug for package in picked] == ["tafsir-jalalayn"]
