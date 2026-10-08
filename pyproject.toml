@@ -1,7 +1,7 @@
 [project]
 name = "itqan-cli"
 version = "0.1.0"
-description = "Install and pin Itqan Quranic assets in your project."
+description = "Itqan Quranic Asset Manager: install and pin Itqan Quranic assets in your project."
 readme = "README.md"
 license = "MIT"
 requires-python = ">=3.11"
