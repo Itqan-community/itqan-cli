@@ -33,6 +33,8 @@ dependencies = [
 
 [project.scripts]
 itqan = "itqan_cli.main:cli"
+# Same CLI under the package name, so `pipx install itqan-cli` then `itqan-cli ...` works too.
+itqan-cli = "itqan_cli.main:cli"
 
 [project.urls]
 Homepage = "https://github.com/Itqan-community/itqan-cli"
