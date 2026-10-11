@@ -1,3 +1,9 @@
+## v0.1.2 (2026-10-11)
+
+### Feat
+
+- publish to npm as itqan-cli
+
 ## v0.1.1 (2026-10-11)
 
 ### Feat
