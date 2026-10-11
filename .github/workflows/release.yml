@@ -143,7 +143,8 @@ jobs:
         run: |
           tag=latest
           if [[ "$GITHUB_REF_NAME" =~ (a|b|rc)[0-9]+$ ]]; then tag=next; fi
-          for tarball in npm-dist/itqan-community-cli-*.tgz npm-dist/itqan-cli-*.tgz; do
+          # The leading ./ matters: npm reads `npm-dist/x.tgz` as the GitHub repo npm-dist/x.tgz.
+          for tarball in ./npm-dist/itqan-community-cli-*.tgz ./npm-dist/itqan-cli-*.tgz; do
             spec="$(tar -xzOf "$tarball" package/package.json | node -p 'const p = JSON.parse(require("fs").readFileSync(0)); p.name + "@" + p.version')"
             if npm view "$spec" version >/dev/null 2>&1; then
               echo "$spec is already published"
