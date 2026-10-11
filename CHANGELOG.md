@@ -1,7 +1,8 @@
-## Unreleased
+## v0.1.0 (2026-10-11)
 
 ### Feat
 
+- attach standalone binaries to each GitHub Release
 - show which gated assets need access and where to request it
 - add `itqan login` / `logout` to save an API key
 - also install the CLI as `itqan-cli`
