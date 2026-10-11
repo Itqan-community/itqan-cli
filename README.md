@@ -19,6 +19,26 @@ pipx install itqan-cli        # or: uv tool install itqan-cli
 
 This installs the `itqan` command; `itqan-cli` is the same command under the package's name.
 
+### Without Python
+
+Each [GitHub Release](https://github.com/Itqan-community/itqan-cli/releases) has a standalone
+`itqan` executable for macOS (arm64, x86_64), Linux (x86_64, arm64) and Windows (x86_64), named
+`itqan-<version>-<os>-<arch>` (`.exe` on Windows). Download yours, check it against
+`SHA256SUMS` and put it on your `PATH` as `itqan`. For example, on an Apple Silicon Mac:
+
+```bash
+v=0.2.0   # the release you want
+curl -fLO "https://github.com/Itqan-community/itqan-cli/releases/download/v$v/itqan-$v-macos-arm64"
+curl -fLO "https://github.com/Itqan-community/itqan-cli/releases/download/v$v/SHA256SUMS"
+shasum -a 256 --check --ignore-missing SHA256SUMS
+chmod +x "itqan-$v-macos-arm64"
+sudo mv "itqan-$v-macos-arm64" /usr/local/bin/itqan
+```
+
+The binaries aren't notarized by Apple, so macOS blocks one downloaded with a browser. Clear the
+quarantine flag to allow it: `xattr -d com.apple.quarantine /usr/local/bin/itqan`. (`curl`
+doesn't set the flag.) On Linux, use `sha256sum --check --ignore-missing SHA256SUMS`.
+
 ## Quick start
 
 ```bash
@@ -90,6 +110,7 @@ request is approved; then run `itqan login` with your API key and they show as `
 uv sync
 uv run pytest
 uv build
+uv run --group binary pyinstaller --onefile --name itqan --copy-metadata itqan-cli --specpath build src/itqan_cli/__main__.py  # dist/itqan
 ```
 
 Releases are published from version tags; see [RELEASING.md](RELEASING.md).

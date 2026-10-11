@@ -26,3 +26,6 @@ jobs:
         run: uv build
       - name: Smoke-test the wheel
         run: uv tool run --from ./dist/*.whl itqan --version
+
+  binaries:
+    uses: ./.github/workflows/binaries.yml

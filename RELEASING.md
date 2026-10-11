@@ -1,8 +1,11 @@
 # Releasing
 
 Releases are published by [`.github/workflows/release.yml`](.github/workflows/release.yml) when a
-version tag is pushed. It runs the tests, builds the package, publishes it to
-[PyPI](https://pypi.org/project/itqan-cli/) and creates the GitHub Release.
+version tag is pushed. It runs the tests, builds the package and the standalone binaries
+([`binaries.yml`](.github/workflows/binaries.yml)), publishes the package to
+[PyPI](https://pypi.org/project/itqan-cli/) and creates the GitHub Release with the package, the
+binaries and a `SHA256SUMS` file. Nothing is published unless every binary builds and passes its
+smoke test (`--version`, `--help`, `init` and `install` against the public registry).
 
 ## Steps
 
