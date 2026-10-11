@@ -1,0 +1,64 @@
+name: Binaries
+
+# Standalone `itqan` executables (PyInstaller, one file, Python bundled) for people without
+# Python. Called by release.yml, which attaches them to the GitHub Release, and by ci.yml.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.os }}-${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { runner: macos-15, os: macos, arch: arm64 }
+          - { runner: macos-15-intel, os: macos, arch: x86_64 }
+          # The oldest supported Ubuntu, so the binary runs on older glibc too.
+          - { runner: ubuntu-22.04, os: linux, arch: x86_64 }
+          - { runner: ubuntu-22.04-arm, os: linux, arch: arm64 }
+          - { runner: windows-2022, os: windows, arch: x86_64 }
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+
+      - name: Build
+        run: |
+          version="$(uv run --no-project --python 3.13 python -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          ext=""
+          if [ "$RUNNER_OS" = Windows ]; then ext=".exe"; fi
+          name="itqan-$version-${{ matrix.os }}-${{ matrix.arch }}"
+          # --copy-metadata: `itqan --version` and the User-Agent read the version from the
+          # package metadata, which PyInstaller leaves out by default.
+          uv run --python 3.13 --group binary pyinstaller --onefile --name "$name" \
+            --copy-metadata itqan-cli \
+            --distpath bin --workpath build/work --specpath build \
+            src/itqan_cli/__main__.py
+          echo "VERSION=$version" >> "$GITHUB_ENV"
+          echo "BINARY=$PWD/bin/$name$ext" >> "$GITHUB_ENV"
+
+      - name: Smoke-test
+        # Runs in an empty folder against the public registry, the way a user would.
+        run: |
+          set -x
+          test "$("$BINARY" --version)" = "itqan, version $VERSION"
+          "$BINARY" --help
+          cd "$RUNNER_TEMP" && mkdir smoke && cd smoke
+          export ITQAN_CONFIG_DIR="$RUNNER_TEMP/itqan-config"
+          "$BINARY" init
+          "$BINARY" install
+          test -f itqan-assets.lock
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: binary-${{ matrix.os }}-${{ matrix.arch }}
+          path: bin/
+          if-no-files-found: error

@@ -2,6 +2,8 @@ name: Release
 
 # Push a tag `vX.Y.Z` (or `vX.Y.ZrcN` for a pre-release) whose version matches
 # pyproject.toml. See RELEASING.md.
+# Publishes to PyPI, then creates the GitHub Release with the sdist, wheel, standalone
+# binaries (binaries.yml) and SHA256SUMS.
 on:
   push:
     tags: ["v*"]
@@ -38,8 +40,13 @@ jobs:
           name: dist
           path: dist/
 
-  publish-pypi:
+  binaries:
     needs: build
+    uses: ./.github/workflows/binaries.yml
+
+  publish-pypi:
+    # Wait for the binaries too, so a release is published everywhere or nowhere.
+    needs: [build, binaries]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -63,6 +70,13 @@ jobs:
         with:
           name: dist
           path: dist/
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: dist/
+          merge-multiple: true
+      - name: Checksums
+        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
