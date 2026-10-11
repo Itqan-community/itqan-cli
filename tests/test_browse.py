@@ -161,6 +161,30 @@ def test_unavailable_reason_where_gated_without_api_key_should_need_key():
     assert with_key is None
 
 
+def test_unavailable_reason_where_no_published_version_should_say_so():
+    # Arrange: listed by the registry, but no language has a version it can install yet.
+    package = _package({**SINGLE, "languages": []})
+
+    # Act
+    reason = browse.unavailable_reason(package, set(), has_api_key=True)
+
+    # Assert
+    assert reason == "no published version"
+
+
+def test_render_table_where_no_published_version_should_not_mark_it_in_manifest():
+    # Arrange
+    package = _package({**SINGLE, "languages": []})
+
+    # Act
+    table = browse.render_table([package], set())
+
+    # Assert
+    row = table.splitlines()[1]
+    assert row.startswith("mushaf-madinah")
+    assert "* " not in row
+
+
 # --- editing the manifest -------------------------------------------------------
 
 

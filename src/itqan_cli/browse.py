@@ -191,7 +191,7 @@ def render_table(packages: list[CatalogPackage], targets: set[Target]) -> str:
     header = ("SLUG", "CATEGORY", "LANGUAGES", "LATEST", "ACCESS", "NAME")
     rows = [header] + [
         (
-            ("* " if not missing_languages(targets, package) else "") + package.slug,
+            ("* " if package.languages and not missing_languages(targets, package) else "") + package.slug,
             package.category,
             _languages_text(package),
             _latest_text(package),
@@ -266,6 +266,8 @@ def choice_description(package: CatalogPackage, has_api_key: bool) -> str:
 
 def unavailable_reason(package: CatalogPackage, targets: set[Target], has_api_key: bool) -> str | None:
     """Why a package can't be picked, or None when it can."""
+    if not package.languages:  # listed, but no language has an installable version yet
+        return "no published version"
     if not missing_languages(targets, package):
         return "in manifest"
     if not can_install(package, has_api_key):
