@@ -19,6 +19,15 @@ pipx install itqan-cli        # or: uv tool install itqan-cli
 
 This installs the `itqan` command; `itqan-cli` is the same command under the package's name.
 
+### Homebrew
+
+On macOS (Apple Silicon or Intel) and Linux, without Python:
+
+```bash
+brew install itqan-community/tap/itqan
+brew upgrade itqan    # later, to update
+```
+
 ### Without Python
 
 Each [GitHub Release](https://github.com/Itqan-community/itqan-cli/releases) has a standalone
