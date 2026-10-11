@@ -4,8 +4,10 @@ Releases are published by [`.github/workflows/release.yml`](.github/workflows/re
 version tag is pushed. It runs the tests, builds the package and the standalone binaries
 ([`binaries.yml`](.github/workflows/binaries.yml)), publishes the package to
 [PyPI](https://pypi.org/project/itqan-cli/) and creates the GitHub Release with the package, the
-binaries and a `SHA256SUMS` file. Nothing is published unless every binary builds and passes its
-smoke test (`--version`, `--help`, `init` and `install` against the public registry).
+binaries and a `SHA256SUMS` file, then publishes the npm packages ([`npm.yml`](.github/workflows/npm.yml))
+and updates the Homebrew tap. Nothing is published unless every binary builds and passes its
+smoke test (`--version`, `--help`, `init` and `install` against the public registry), and the npm
+packages install and run on every platform.
 
 ## Steps
 
@@ -64,3 +66,32 @@ itqan-cli` skips them unless asked for explicitly: `pipx install itqan-cli==0.2.
   ```
 
   If the job fails, the release is still out on PyPI and GitHub; fix the cause and re-run the job.
+- **npm:** the `publish-npm` job publishes `itqan-cli` and the platform packages
+  `@itqan-community/cli-{darwin-arm64,darwin-x64,linux-arm64,linux-x64,win32-x64}` with
+  [trusted publishing](https://docs.npmjs.com/trusted-publishers), so no token is stored. npm only
+  lets you set that up for a package that already exists, so publish the first version by hand:
+  1. Create the `itqan-community` organization on [npmjs.com](https://www.npmjs.com/org/create)
+     (free for public packages). You need two-factor authentication on your npm account.
+  2. Build the packages from the latest release and publish them (platform packages first):
+
+     ```bash
+     v=0.1.1   # the latest release
+     gh release download "v$v" --pattern "itqan-$v-*" --dir /tmp/itqan-bin
+     python3 scripts/npm_packages.py "$v" /tmp/itqan-bin /tmp/itqan-npm
+     npm login
+     for p in /tmp/itqan-npm/cli-* /tmp/itqan-npm/itqan-cli; do npm publish "$p" --access public; done
+     ```
+
+  3. Trust this repository's release workflow for each package (npm 11.10+):
+
+     ```bash
+     for p in itqan-cli @itqan-community/cli-{darwin-arm64,darwin-x64,linux-arm64,linux-x64,win32-x64}; do
+       npm trust github "$p" --repo Itqan-community/itqan-cli --file release.yml --env npm --yes
+       sleep 2
+     done
+     ```
+
+  4. Create an environment named `npm` under *Settings → Environments*.
+
+  If the job fails, the release is still out on PyPI and GitHub; fix the cause and re-run the job.
+  It skips packages already published at that version.

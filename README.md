@@ -28,6 +28,24 @@ brew install itqan-community/tap/itqan
 brew upgrade itqan    # later, to update
 ```
 
+### npm
+
+For JavaScript and React Native projects, without Python:
+
+```bash
+npx itqan-cli init
+npx itqan-cli install
+```
+
+Or add it to your project and run `itqan install` from your `package.json` scripts:
+
+```bash
+npm install --save-dev itqan-cli
+```
+
+It runs the standalone binary for your platform (macOS, Linux with glibc, Windows), installed as
+an optional dependency, so don't install with `--omit=optional`.
+
 ### Without Python
 
 Each [GitHub Release](https://github.com/Itqan-community/itqan-cli/releases) has a standalone
