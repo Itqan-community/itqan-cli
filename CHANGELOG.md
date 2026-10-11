@@ -1,3 +1,13 @@
+## v0.1.1 (2026-10-11)
+
+### Feat
+
+- publish a Homebrew formula on each release
+
+### Fix
+
+- **browse**: say when an asset has no published version yet
+
 ## v0.1.0 (2026-10-11)
 
 ### Feat
