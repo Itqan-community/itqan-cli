@@ -3,7 +3,8 @@ name: Release
 # Push a tag `vX.Y.Z` (or `vX.Y.ZrcN` for a pre-release) whose version matches
 # pyproject.toml. See RELEASING.md.
 # Publishes to PyPI, then creates the GitHub Release with the sdist, wheel, standalone
-# binaries (binaries.yml) and SHA256SUMS.
+# binaries (binaries.yml) and SHA256SUMS, then publishes to npm (npm.yml) and updates the
+# Homebrew tap.
 on:
   push:
     tags: ["v*"]
@@ -44,9 +45,13 @@ jobs:
     needs: build
     uses: ./.github/workflows/binaries.yml
 
+  npm:
+    needs: binaries
+    uses: ./.github/workflows/npm.yml
+
   publish-pypi:
-    # Wait for the binaries too, so a release is published everywhere or nowhere.
-    needs: [build, binaries]
+    # Wait for the binaries and npm packages too, so a release is published everywhere or nowhere.
+    needs: [build, binaries, npm]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -113,3 +118,36 @@ jobs:
           git diff --cached --quiet && exit 0
           git commit -m "itqan $version"
           git push
+
+  publish-npm:
+    # Platform packages first, so `itqan-cli`'s optional dependencies exist when it appears.
+    # Pre-releases go under the `next` dist-tag, so `npx itqan-cli` keeps the latest final release.
+    # Packages already at this version are skipped, so a failed run can be re-run.
+    needs: github-release
+    runs-on: ubuntu-latest
+    environment:
+      name: npm
+      url: https://www.npmjs.com/package/itqan-cli
+    permissions:
+      id-token: write  # trusted publishing: npm accepts this workflow's identity, no token stored
+    steps:
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          registry-url: https://registry.npmjs.org
+      - uses: actions/download-artifact@v4
+        with:
+          name: npm-packages
+          path: npm-dist/
+      - name: Publish
+        run: |
+          tag=latest
+          if [[ "$GITHUB_REF_NAME" =~ (a|b|rc)[0-9]+$ ]]; then tag=next; fi
+          for tarball in npm-dist/itqan-community-cli-*.tgz npm-dist/itqan-cli-*.tgz; do
+            spec="$(tar -xzOf "$tarball" package/package.json | node -p 'const p = JSON.parse(require("fs").readFileSync(0)); p.name + "@" + p.version')"
+            if npm view "$spec" version >/dev/null 2>&1; then
+              echo "$spec is already published"
+              continue
+            fi
+            npm publish "$tarball" --access public --tag "$tag"
+          done
