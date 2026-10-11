@@ -6,8 +6,21 @@ version tag is pushed. It runs the tests, builds the package, publishes it to
 
 ## Steps
 
-1. Bump `version` in `pyproject.toml` (e.g. `0.2.0`, or `0.2.0rc1` for a pre-release) and run
-   `uv lock`, on a branch with a PR.
+1. On a branch with a PR, let [commitizen](https://commitizen-tools.github.io/commitizen/) pick
+   the next version from the [Conventional Commits](https://www.conventionalcommits.org/) since
+   the last tag, then refresh the lock file:
+
+   ```bash
+   uv run cz bump --files-only --yes                    # e.g. 0.2.0
+   uv run cz bump --files-only --yes --prerelease rc    # or a pre-release, e.g. 0.2.0rc1
+   uv lock
+   ```
+
+   This bumps `version` in `pyproject.toml` and moves the `Unreleased` entries in
+   [`CHANGELOG.md`](CHANGELOG.md) under the new version. `--files-only` stops it from committing
+   or tagging, since the tag belongs on `main` (step 2). Edit the changelog wording if it needs it.
+   Use `uv run cz bump --dry-run` to preview, or `uv run cz changelog` to regenerate the
+   `Unreleased` section between releases.
 2. Once it's merged, tag `main` with the same version and push the tag:
 
    ```bash
