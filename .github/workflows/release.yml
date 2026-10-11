@@ -85,3 +85,31 @@ jobs:
           if [[ "$GITHUB_REF_NAME" =~ (a|b|rc)[0-9]+$ ]]; then prerelease="--prerelease"; fi
           gh release create "$GITHUB_REF_NAME" dist/* \
             --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes --verify-tag $prerelease
+
+  homebrew:
+    # Point `brew install itqan-community/tap/itqan` at the new binaries. Pre-releases stay out
+    # of the tap. Pushes with a deploy key that has write access to the tap; see RELEASING.md.
+    needs: github-release
+    if: ${{ !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc') }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: Itqan-community/homebrew-tap
+          ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
+          path: tap
+      - name: Update the formula
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --pattern SHA256SUMS --dir "$RUNNER_TEMP"
+          python3 scripts/homebrew_formula.py "$version" "$RUNNER_TEMP/SHA256SUMS" > tap/Formula/itqan.rb
+          cd tap
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add Formula/itqan.rb
+          git diff --cached --quiet && exit 0
+          git commit -m "itqan $version"
+          git push

@@ -51,3 +51,16 @@ itqan-cli` skips them unless asked for explicitly: `pipx install itqan-cli==0.2.
   - Environment: `pypi`
 - **GitHub:** create an environment named `pypi` under *Settings → Environments*. Adding required
   reviewers makes every release wait for a maintainer's approval.
+- **Homebrew:** after a final (not pre-) release, the `homebrew` job regenerates
+  `Formula/itqan.rb` in [`Itqan-community/homebrew-tap`](https://github.com/Itqan-community/homebrew-tap)
+  with [`scripts/homebrew_formula.py`](scripts/homebrew_formula.py) and pushes it. It pushes with
+  an SSH deploy key, so no personal token is stored:
+
+  ```bash
+  ssh-keygen -t ed25519 -N "" -C "itqan-cli release" -f tap_key
+  gh repo deploy-key add tap_key.pub --repo Itqan-community/homebrew-tap --allow-write --title "itqan-cli release"
+  gh secret set HOMEBREW_TAP_DEPLOY_KEY --repo Itqan-community/itqan-cli < tap_key
+  rm tap_key tap_key.pub
+  ```
+
+  If the job fails, the release is still out on PyPI and GitHub; fix the cause and re-run the job.
