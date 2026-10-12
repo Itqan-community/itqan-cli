@@ -9,7 +9,7 @@ import sys
 
 import click
 
-from itqan_cli import browse, credentials
+from itqan_cli import browse, credentials, flutter as flutter_pubspec
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
@@ -42,6 +42,7 @@ def _run_install(
     registry_url: str,
     api_key: str | None,
     force: bool,
+    flutter: bool | None = None,
 ) -> int:
     m_path = Path(manifest_path)
     l_path = Path(lockfile_path)
@@ -65,6 +66,14 @@ def _run_install(
     # both relative to the manifest's folder.
     assert manifest is not None
     a_dir = Path(assets_dir) if assets_dir else m_path.parent / (manifest.assets_dir or DEFAULT_ASSETS_DIR)
+
+    # --flutter opts in; after that the block it leaves in pubspec.yaml keeps every install
+    # (a teammate's, CI's) updating it. Check the pubspec before downloading anything.
+    pubspec = m_path.parent / flutter_pubspec.PUBSPEC
+    if flutter is None:
+        flutter = flutter_pubspec.has_managed_block(pubspec)
+    if flutter:
+        flutter_pubspec.check_pubspec(pubspec)
 
     client = RegistryClient(base_url=registry_url, api_key=api_key)
     downloader = AssetDownloader(assets_dir=a_dir)
@@ -145,6 +154,13 @@ def _run_install(
                 pass
             raise
 
+    if flutter:
+        folders = flutter_pubspec.asset_folders(pubspec.parent, [a_dir / res.slug for res in download_summary])
+        if flutter_pubspec.update_pubspec(pubspec, folders):
+            click.echo(f"Updated {pubspec}: {len(folders)} asset folder(s) under flutter: assets:")
+        else:
+            click.echo(f"{pubspec} already lists the asset folders.")
+
     click.echo(f"Success! {len(download_summary)} asset(s) materialized successfully.")
     return 0
 
@@ -194,6 +210,12 @@ def _run_install(
     default=False,
     help="Force re-resolution and re-download of assets.",
 )
+@click.option(
+    "--flutter/--no-flutter",
+    default=None,
+    help="List the installed asset folders under `flutter: assets:` in the pubspec.yaml next to the manifest. "
+    "Once used, later installs keep that list up to date without the flag.",
+)
 def install_command(
     manifest_path: str,
     lockfile_path: str,
@@ -201,6 +223,7 @@ def install_command(
     registry_url: str,
     api_key: str | None,
     force: bool,
+    flutter: bool | None = None,
 ) -> None:
     """Install assets declared in itqan-assets.yaml."""
     api_key = _api_key(api_key, registry_url)
@@ -212,6 +235,7 @@ def install_command(
             registry_url=registry_url,
             api_key=api_key,
             force=force,
+            flutter=flutter,
         )
         sys.exit(exit_code)
     except ItqanCliError as exc:
@@ -317,7 +341,13 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
     m_path.parent.mkdir(parents=True, exist_ok=True)
     m_path.write_text(content, encoding="utf-8")
     click.echo(f"Created {m_path} with {len(samples)} sample asset(s).")
-    click.echo("Edit it as needed, then run `itqan install` to download the assets.")
+    if flutter_pubspec.is_flutter_project(m_path.parent / flutter_pubspec.PUBSPEC):
+        click.echo(
+            "Edit it as needed, then run `itqan install --flutter` to download the assets "
+            f"and list them in {flutter_pubspec.PUBSPEC}."
+        )
+    else:
+        click.echo("Edit it as needed, then run `itqan install` to download the assets.")
 
 
 @cli.command("browse")

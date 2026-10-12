@@ -120,6 +120,39 @@ Each language of an asset has its own version history, so each gets its own entr
 lock entry and folder (`public/quran/tafsir-jalalayn-en/`). The full format is specified in
 [ASSET_MANIFEST.md](https://github.com/Itqan-community/cms-backend/blob/main/docs/ASSET_MANIFEST.md).
 
+## Flutter
+
+Flutter bundles only the asset folders listed in `pubspec.yaml`, and a folder entry doesn't
+include its subfolders. Put `itqan-assets.yaml` next to `pubspec.yaml` and run:
+
+```bash
+itqan install --flutter
+```
+
+This adds every folder that holds installed files to `flutter: assets:`, in a block the CLI
+manages:
+
+```yaml
+flutter:
+  assets:
+    - images/            # your own entries are left alone
+    # itqan:start (managed by `itqan install`, do not edit)
+    - assets/tafsir-jalalayn/
+    - assets/tafsir-jalalayn-en/
+    # itqan:end
+```
+
+Commit `pubspec.yaml` with the block. From then on every `itqan install`, yours, a teammate's or
+CI's, keeps the block in sync with the manifest without the flag, and leaves the file untouched
+when nothing changed. The rest of `pubspec.yaml`, comments and formatting included, is never
+rewritten. Load the files with `rootBundle`:
+
+```dart
+final csv = await rootBundle.loadString('assets/tafsir-jalalayn/tafsir.csv');
+```
+
+To stop, delete the block (both marker lines included), or pass `--no-flutter` for one run.
+
 ## Commands
 
 | Command | What it does |
@@ -128,7 +161,7 @@ lock entry and folder (`public/quran/tafsir-jalalayn-en/`). The full format is s
 | `itqan browse [QUERY]` | Search the registry's catalog and pick assets to add to `itqan-assets.yaml` (created if missing), then optionally install them. Type in the picker to filter further. `--category`, `--no-interactive` (print a table; the default outside a terminal), `--json`. |
 | `itqan login` | Save your API key (create one at [cms.itqan.dev/account/api-keys](https://cms.itqan.dev/account/api-keys)). The key is checked first, then saved for that registry, readable only by you. `--api-key` to pass it without the prompt. |
 | `itqan logout` | Remove the saved key. |
-| `itqan install` | Resolve, download and lock. Uses the lockfile's exact versions when it is up to date; `--force` re-resolves. |
+| `itqan install` | Resolve, download and lock. Uses the lockfile's exact versions when it is up to date; `--force` re-resolves; `--flutter` lists the assets in `pubspec.yaml` (see [Flutter](#flutter)). |
 | `itqan sync` | Same as `install`. |
 | `itqan --version` | Print the CLI version. |
 
