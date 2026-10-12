@@ -67,3 +67,7 @@ class RegistryApiError(ItqanCliError):
 
 class DownloadError(ItqanCliError):
     """Error downloading or verifying an asset artifact."""
+
+
+class FlutterPubspecError(ItqanCliError):
+    """pubspec.yaml is missing or can't be updated for `itqan install --flutter`."""

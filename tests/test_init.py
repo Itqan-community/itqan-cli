@@ -197,3 +197,30 @@ def test_init_command_where_source_language_code_is_blank_should_describe_it_as_
     # Assert
     assert result.exit_code == 0, result.output
     assert "# Mushaf Madinah — languages: source (1.3.0)" in (tmp_path / "itqan-assets.yaml").read_text()
+
+
+@responses.activate
+def test_init_command_where_next_to_a_flutter_pubspec_should_suggest_install_flutter(tmp_path: Path):
+    # Arrange
+    _mock_catalog([])
+    (tmp_path / "pubspec.yaml").write_text("name: app\nflutter:\n  uses-material-design: true\n")
+
+    # Act
+    result = _init(tmp_path)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "itqan install --flutter" in result.output
+
+
+@responses.activate
+def test_init_command_where_no_flutter_pubspec_should_suggest_plain_install(tmp_path: Path):
+    # Arrange
+    _mock_catalog([])
+
+    # Act
+    result = _init(tmp_path)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "--flutter" not in result.output
