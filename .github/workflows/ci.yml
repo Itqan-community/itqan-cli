@@ -33,3 +33,7 @@ jobs:
   npm:
     needs: binaries
     uses: ./.github/workflows/npm.yml
+
+  dart:
+    needs: binaries
+    uses: ./.github/workflows/dart.yml

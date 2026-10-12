@@ -46,6 +46,19 @@ npm install --save-dev itqan-cli
 It runs the standalone binary for your platform (macOS, Linux with glibc, Windows), installed as
 an optional dependency, so don't install with `--omit=optional`.
 
+### Dart and Flutter
+
+Without Python, from [pub.dev](https://pub.dev/packages/itqan_cli):
+
+```bash
+dart pub global activate itqan_cli
+itqan install
+```
+
+The package version is the CLI version (`dart pub global activate itqan_cli 0.2.0` runs 0.2.0).
+On first use it downloads the standalone binary for your platform from the GitHub Release, checks
+it against `SHA256SUMS` and caches it.
+
 ### GitHub Actions
 
 In CI, the [setup-itqan](https://github.com/Itqan-community/setup-itqan) action installs the

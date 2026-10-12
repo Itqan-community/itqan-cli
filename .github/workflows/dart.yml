@@ -1,0 +1,87 @@
+name: Dart
+
+# The pub.dev package (dart/, built by scripts/dart_package.py): a thin `itqan` launcher that
+# downloads the release's standalone binary on first use. Called after binaries.yml by ci.yml and
+# release.yml; release.yml publishes the `dart-package` artifact.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+      - name: Build and check
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          python3 scripts/dart_package.py "$version" dart-package
+          cd dart-package
+          dart pub get
+          dart format --output=none --set-exit-if-changed .
+          dart analyze --fatal-infos
+          dart pub publish --dry-run
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dart-package
+          path: dart-package/
+          include-hidden-files: true
+          if-no-files-found: error
+
+  smoke:
+    # Activate the package as a user would and run `itqan`, with the binaries this run built
+    # standing in for the GitHub Release (ITQAN_CLI_DOWNLOAD_URL), which doesn't exist yet.
+    name: smoke ${{ matrix.runner }}
+    needs: pack
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-15, macos-15-intel, ubuntu-22.04, ubuntu-22.04-arm, windows-2022]
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: dart-lang/setup-dart@v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: dart-package
+          path: dart-package/
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: binary-*
+          path: release/
+          merge-multiple: true
+      - name: Test
+        working-directory: dart-package
+        run: dart pub get && dart test
+      - name: Activate and run
+        run: |
+          set -x
+          cd release
+          if command -v sha256sum > /dev/null; then sha256sum itqan-* > SHA256SUMS; else shasum -a 256 itqan-* > SHA256SUMS; fi
+          cat SHA256SUMS
+          url="file://$PWD/"
+          if [ "$RUNNER_OS" = Windows ]; then url="file:///$(cygpath -m "$PWD")/"; fi
+          cd ..
+          export PUB_CACHE="$RUNNER_TEMP/pub-cache" ITQAN_CACHE_DIR="$RUNNER_TEMP/itqan-cache" ITQAN_CLI_DOWNLOAD_URL="$url"
+          export ITQAN_CONFIG_DIR="$RUNNER_TEMP/itqan-config"
+          dart pub global activate --source path dart-package
+          itqan="$PUB_CACHE/bin/itqan"
+          if [ "$RUNNER_OS" = Windows ]; then itqan="$PUB_CACHE/bin/itqan.bat"; fi
+          version="$(grep -o "'.*'" dart-package/lib/src/version.dart | tr -d "'")"
+          # A path-activated package prints pub's resolver output on each run, so check the last line.
+          "$itqan" --version 2>&1 | tee first.log
+          test "$(tail -1 first.log)" = "itqan, version $version"
+          grep -q "Downloading itqan $version" first.log
+          # The second run uses the cached binary.
+          "$itqan" --version 2>&1 | tee second.log
+          test "$(tail -1 second.log)" = "itqan, version $version"
+          if grep -q "Downloading itqan" second.log; then exit 1; fi
+          mkdir "$RUNNER_TEMP/project" && cd "$RUNNER_TEMP/project"
+          "$itqan" init
+          "$itqan" install
+          test -f itqan-assets.lock
