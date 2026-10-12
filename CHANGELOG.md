@@ -1,3 +1,27 @@
+## v0.2.0 (2026-10-12)
+
+### Feat
+
+- publish to pub.dev as `itqan_cli`: `dart pub global activate itqan_cli` installs `itqan` without
+  Python. It downloads the program for your computer on first use, checks it against the
+  release's `SHA256SUMS`, and keeps it for later runs.
+- **flutter**: `itqan install --flutter` lists the installed asset folders under `flutter: assets:`
+  in `pubspec.yaml`, inside an `# itqan:start` / `# itqan:end` block. Later installs keep the block
+  in sync without the flag, and the rest of the file is never changed.
+- **ci**: the [setup-itqan](https://github.com/Itqan-community/setup-itqan) GitHub Action installs
+  `itqan` on Linux, macOS and Windows runners: `uses: itqan-community/setup-itqan@v1`.
+
+### Fix
+
+- keep version markers out of the asset folders, where Flutter bundled them into apps. They now
+  live in `<assets_dir>/.itqan/`. Existing installs are moved over on the next `itqan install`
+  without downloading again.
+
+### Docs
+
+- rewrite the README around what you want to do: pick an install method for your project, get
+  started, use the assets in a web or Flutter app, update them, and set up CI.
+
 ## v0.1.3 (2026-10-11)
 
 ### Fix
