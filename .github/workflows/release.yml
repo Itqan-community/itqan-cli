@@ -14,10 +14,10 @@ permissions:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0  # no moving major tags since v8
 
       - name: Check the tag matches the package version
         run: |
@@ -36,7 +36,7 @@ jobs:
       - name: Smoke-test the wheel
         run: uv tool run --from ./dist/*.whl itqan --version
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
@@ -56,14 +56,14 @@ jobs:
   publish-pypi:
     # Wait for the binaries, npm and Dart packages too, so a release is published everywhere or nowhere.
     needs: [build, binaries, npm, dart]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pypi
       url: https://pypi.org/project/itqan-cli/
     permissions:
       id-token: write  # trusted publishing: PyPI accepts this workflow's identity, no token stored
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
@@ -71,21 +71,21 @@ jobs:
 
   github-release:
     needs: publish-pypi
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dist
           path: dist/
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: binary-*
           path: dist/
           merge-multiple: true
       - name: Checksums
-        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+        run: cd dist && sha256sum -- * > SHA256SUMS && cat SHA256SUMS
       - name: Create the GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
@@ -100,10 +100,10 @@ jobs:
     # of the tap. Pushes with a deploy key that has write access to the tap; see RELEASING.md.
     needs: github-release
     if: ${{ !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
+      - uses: actions/checkout@v7
         with:
           repository: Itqan-community/homebrew-tap
           ssh-key: ${{ secrets.HOMEBREW_TAP_DEPLOY_KEY }}
@@ -128,18 +128,18 @@ jobs:
     # Pre-releases go under the `next` dist-tag, so `npx itqan-cli` keeps the latest final release.
     # Packages already at this version are skipped, so a failed run can be re-run.
     needs: github-release
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: npm
       url: https://www.npmjs.com/package/itqan-cli
     permissions:
       id-token: write  # trusted publishing: npm accepts this workflow's identity, no token stored
     steps:
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: 24
           registry-url: https://registry.npmjs.org
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: npm-packages
           path: npm-dist/
@@ -163,7 +163,7 @@ jobs:
     # Skips a version that is already published, so a failed run can be re-run.
     needs: github-release
     if: ${{ !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc') }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     environment:
       name: pub.dev
       url: https://pub.dev/packages/itqan_cli
@@ -171,7 +171,7 @@ jobs:
       id-token: write  # automated publishing: pub.dev accepts this workflow's identity, no token stored
     steps:
       - uses: dart-lang/setup-dart@v1
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: dart-package
           path: dart-package/

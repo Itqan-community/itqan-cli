@@ -27,8 +27,8 @@ jobs:
       run:
         shell: bash
     steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v6
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10.3.0  # no moving major tags since v8
 
       - name: Build
         run: |
@@ -57,7 +57,7 @@ jobs:
           "$BINARY" install
           test -f itqan-assets.lock
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: binary-${{ matrix.os }}-${{ matrix.arch }}
           path: bin/
