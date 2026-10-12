@@ -1,0 +1,27 @@
+name: itqan_cli
+description: >-
+  Install and pin Itqan Quranic assets (mushafs, tafsirs, translations) in Dart and Flutter
+  projects. Runs the standalone itqan binary; no Python needed.
+# Set on each release by scripts/dart_package.py, to the CLI version it runs.
+version: 0.0.0-dev
+homepage: https://github.com/Itqan-community/itqan-cli
+repository: https://github.com/Itqan-community/itqan-cli/tree/main/dart
+issue_tracker: https://github.com/Itqan-community/itqan-cli/issues
+topics: [quran, flutter, assets, cli]
+platforms:
+  linux:
+  macos:
+  windows:
+
+environment:
+  sdk: ^3.5.0
+
+executables:
+  itqan: itqan
+
+dependencies:
+  crypto: ^3.0.6
+
+dev_dependencies:
+  lints: ^5.0.0
+  test: ^1.25.0

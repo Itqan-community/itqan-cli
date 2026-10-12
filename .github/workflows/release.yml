@@ -3,8 +3,8 @@ name: Release
 # Push a tag `vX.Y.Z` (or `vX.Y.ZrcN` for a pre-release) whose version matches
 # pyproject.toml. See RELEASING.md.
 # Publishes to PyPI, then creates the GitHub Release with the sdist, wheel, standalone
-# binaries (binaries.yml) and SHA256SUMS, then publishes to npm (npm.yml) and updates the
-# Homebrew tap.
+# binaries (binaries.yml) and SHA256SUMS, then publishes to npm (npm.yml) and pub.dev (dart.yml)
+# and updates the Homebrew tap.
 on:
   push:
     tags: ["v*"]
@@ -49,9 +49,13 @@ jobs:
     needs: binaries
     uses: ./.github/workflows/npm.yml
 
+  dart:
+    needs: binaries
+    uses: ./.github/workflows/dart.yml
+
   publish-pypi:
-    # Wait for the binaries and npm packages too, so a release is published everywhere or nowhere.
-    needs: [build, binaries, npm]
+    # Wait for the binaries, npm and Dart packages too, so a release is published everywhere or nowhere.
+    needs: [build, binaries, npm, dart]
     runs-on: ubuntu-latest
     environment:
       name: pypi
@@ -152,3 +156,31 @@ jobs:
             fi
             npm publish "$tarball" --access public --tag "$tag"
           done
+
+  publish-pub:
+    # pub.dev only accepts a tag matching its `v{{version}}` pattern, and a pre-release's pub
+    # version (0.2.0-rc.1) doesn't match its tag (v0.2.0rc1), so pre-releases stay off pub.dev.
+    # Skips a version that is already published, so a failed run can be re-run.
+    needs: github-release
+    if: ${{ !contains(github.ref_name, 'a') && !contains(github.ref_name, 'b') && !contains(github.ref_name, 'rc') }}
+    runs-on: ubuntu-latest
+    environment:
+      name: pub.dev
+      url: https://pub.dev/packages/itqan_cli
+    permissions:
+      id-token: write  # automated publishing: pub.dev accepts this workflow's identity, no token stored
+    steps:
+      - uses: dart-lang/setup-dart@v1
+      - uses: actions/download-artifact@v4
+        with:
+          name: dart-package
+          path: dart-package/
+      - name: Publish
+        working-directory: dart-package
+        run: |
+          version="${GITHUB_REF_NAME#v}"
+          if curl -fsS -o /dev/null "https://pub.dev/api/packages/itqan_cli/versions/$version"; then
+            echo "itqan_cli $version is already published"
+            exit 0
+          fi
+          dart pub publish --force

@@ -4,10 +4,11 @@ Releases are published by [`.github/workflows/release.yml`](.github/workflows/re
 version tag is pushed. It runs the tests, builds the package and the standalone binaries
 ([`binaries.yml`](.github/workflows/binaries.yml)), publishes the package to
 [PyPI](https://pypi.org/project/itqan-cli/) and creates the GitHub Release with the package, the
-binaries and a `SHA256SUMS` file, then publishes the npm packages ([`npm.yml`](.github/workflows/npm.yml))
-and updates the Homebrew tap. Nothing is published unless every binary builds and passes its
-smoke test (`--version`, `--help`, `init` and `install` against the public registry), and the npm
-packages install and run on every platform.
+binaries and a `SHA256SUMS` file, then publishes the npm packages
+([`npm.yml`](.github/workflows/npm.yml)) and the pub.dev package
+([`dart.yml`](.github/workflows/dart.yml)) and updates the Homebrew tap. Nothing is published unless
+every binary builds and passes its smoke test (`--version`, `--help`, `init` and `install` against
+the public registry), and the npm and Dart packages install and run on every platform.
 
 ## Steps
 
@@ -95,3 +96,25 @@ itqan-cli` skips them unless asked for explicitly: `pipx install itqan-cli==0.2.
 
   If the job fails, the release is still out on PyPI and GitHub; fix the cause and re-run the job.
   It skips packages already published at that version.
+- **pub.dev:** the `publish-pub` job publishes `itqan_cli` with
+  [automated publishing](https://dart.dev/tools/pub/automated-publishing), so no token is stored.
+  Pre-releases are skipped: pub.dev needs the tag to read `v<pub version>`, and `v0.2.0rc1` isn't
+  `v0.2.0-rc.1`. As with npm, the first version has to be published by hand:
+  1. Optionally, create a [verified publisher](https://pub.dev/create-publisher) for `itqan.dev`
+     (needs a DNS TXT record on the domain), so the package shows as published by it.
+  2. Build the package from the latest final release and publish it:
+
+     ```bash
+     v=0.2.0   # the latest final release
+     python3 scripts/dart_package.py "$v" /tmp/itqan-dart
+     cd /tmp/itqan-dart && dart pub get && dart pub publish
+     ```
+
+     If you created the publisher, move the package to it under *Admin* on its pub.dev page.
+  3. Under *Admin → Automated publishing* on the package's pub.dev page, enable publishing from
+     GitHub Actions with repository `Itqan-community/itqan-cli` and tag pattern `v{{version}}`.
+     Tick *Require GitHub Actions environment* and enter `pub.dev`.
+  4. Create an environment named `pub.dev` under *Settings → Environments*.
+
+  If the job fails, the release is still out everywhere else; fix the cause and re-run the job.
+  It skips a version that's already published.
