@@ -1,5 +1,17 @@
 # itqan-cli
 
+[![CI](https://github.com/Itqan-community/itqan-cli/actions/workflows/ci.yml/badge.svg)](https://github.com/Itqan-community/itqan-cli/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/Itqan-community/itqan-cli)](https://github.com/Itqan-community/itqan-cli/releases/latest)
+[![PyPI](https://img.shields.io/pypi/v/itqan-cli)](https://pypi.org/project/itqan-cli/)
+[![Python](https://img.shields.io/pypi/pyversions/itqan-cli)](https://pypi.org/project/itqan-cli/)
+[![npm](https://img.shields.io/npm/v/itqan-cli)](https://www.npmjs.com/package/itqan-cli)
+[![pub.dev](https://img.shields.io/pub/v/itqan_cli)](https://pub.dev/packages/itqan_cli)
+[![Homebrew](https://img.shields.io/badge/homebrew-itqan--community%2Ftap-orange)](https://github.com/Itqan-community/homebrew-tap)
+[![GitHub Action](https://img.shields.io/github/v/release/Itqan-community/setup-itqan?label=setup-itqan)](https://github.com/Itqan-community/setup-itqan)
+[![npm downloads](https://img.shields.io/npm/dm/itqan-cli?label=npm%20downloads)](https://www.npmjs.com/package/itqan-cli)
+[![PyPI downloads](https://img.shields.io/pypi/dm/itqan-cli?label=PyPI%20downloads)](https://pypi.org/project/itqan-cli/)
+[![License: MIT](https://img.shields.io/github/license/Itqan-community/itqan-cli)](LICENSE)
+
 **Itqan Quranic Asset Manager**
 
 `itqan` adds [Itqan](https://cms.itqan.dev) Quranic data, such as mushafs, tafsirs,
