@@ -46,6 +46,25 @@ npm install --save-dev itqan-cli
 It runs the standalone binary for your platform (macOS, Linux with glibc, Windows), installed as
 an optional dependency, so don't install with `--omit=optional`.
 
+### GitHub Actions
+
+In CI, the [setup-itqan](https://github.com/Itqan-community/setup-itqan) action installs the
+standalone binary for the runner (Linux, macOS or Windows) and caches it:
+
+```yaml
+- uses: actions/checkout@v7
+- uses: itqan-community/setup-itqan@v1
+  with:
+    version: latest       # or a pinned version, such as 0.1.3
+- run: itqan install
+  env:
+    ITQAN_API_KEY: ${{ secrets.ITQAN_API_KEY }}   # only for assets that need access approval
+```
+
+`itqan install` uses the exact versions in `itqan-assets.lock`, so a pull request that bumps an
+asset is checked by installing it. Pass `install: true` to run it from the action, and see the
+action's README for its other inputs.
+
 ### Without Python
 
 Each [GitHub Release](https://github.com/Itqan-community/itqan-cli/releases) has a standalone
