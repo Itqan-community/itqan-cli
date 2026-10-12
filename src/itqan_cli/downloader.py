@@ -13,8 +13,11 @@ import requests
 from itqan_cli.client import ResolvedAssetPayload
 from itqan_cli.exceptions import DownloadError
 
-# The version marker filename is reserved — a download URL must never produce
-# a basename matching this name, or it would silently overwrite version metadata.
+# Version markers live in <assets_dir>/.itqan/<entry name>, outside the asset folders, so
+# bundlers that ship a whole folder (Flutter) don't ship them. The folder name is reserved.
+_MARKER_DIR = ".itqan"
+# Where versions before 0.2 kept the marker: inside the asset folder. Still read, then moved.
+# A download URL must never produce a basename matching it, or it would clobber the marker.
 _RESERVED_FILENAME = ".itqan_version"
 
 
@@ -41,6 +44,8 @@ def _validate_slug(slug: str) -> None:
     # Path(slug).name must equal slug — catches edge cases like 'a/b' on Windows
     if Path(slug).name != slug:
         raise DownloadError(f"Asset slug '{slug}' is not a safe single path component.")
+    if slug == _MARKER_DIR:
+        raise DownloadError(f"'{_MARKER_DIR}' is reserved for the CLI's version markers; rename the entry.")
 
 
 def _validate_download_url(url: str, slug: str) -> None:
@@ -131,14 +136,23 @@ class AssetDownloader:
         target_file = self._determine_target_file(asset, slug_dir)
 
         # Version marker file to ensure version integrity
-        version_marker = slug_dir / _RESERVED_FILENAME
+        marker_dir = self.assets_dir / _MARKER_DIR
+        marker_dir.mkdir(exist_ok=True)
+        version_marker = marker_dir / asset.entry_name
+        legacy_marker = slug_dir / _RESERVED_FILENAME
 
         # Idempotency check: if target file and matching version marker exist
         if not force and target_file.is_file() and target_file.stat().st_size > 0:
-            if (
-                version_marker.is_file()
-                and version_marker.read_text(encoding="utf-8").strip() == asset.resolved_version
-            ):
+            if _read_marker(version_marker) == asset.resolved_version:
+                return DownloadResult(
+                    slug=asset.entry_name,
+                    version=asset.resolved_version,
+                    target_path=target_file,
+                    downloaded=False,
+                    size_bytes=target_file.stat().st_size,
+                )
+            if _read_marker(legacy_marker) == asset.resolved_version:
+                os.replace(legacy_marker, version_marker)
                 return DownloadResult(
                     slug=asset.entry_name,
                     version=asset.resolved_version,
@@ -167,9 +181,9 @@ class AssetDownloader:
         # in a single rename sequence — prevents a torn state if the process
         # dies between writing the artifact and writing the marker.
         marker_fd, marker_tmp_str = tempfile.mkstemp(
-            prefix=".itqan_version_",
+            prefix=f"{asset.entry_name}_",
             suffix=".tmp",
-            dir=slug_dir,
+            dir=marker_dir,
         )
         # Close the marker fd immediately — we will re-open it for writing
         # inside the try block. Keeping it open here would prevent deletion
@@ -198,6 +212,7 @@ class AssetDownloader:
             # next run will re-download correctly.
             os.replace(marker_tmp, version_marker)
             os.replace(temp_file, target_file)
+            legacy_marker.unlink(missing_ok=True)
 
             return DownloadResult(
                 slug=asset.entry_name,
@@ -218,3 +233,7 @@ class AssetDownloader:
             if isinstance(exc, DownloadError):
                 raise
             raise DownloadError(f"Error downloading asset '{asset.slug}': {exc}") from exc
+
+
+def _read_marker(marker: Path) -> str | None:
+    return marker.read_text(encoding="utf-8").strip() if marker.is_file() else None
