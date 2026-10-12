@@ -74,3 +74,81 @@ def test_materialize_asset_where_server_returns_500_should_raise_download_error_
     if slug_dir.exists():
         files = list(slug_dir.iterdir())
         assert len(files) == 0
+
+
+@responses.activate
+def test_materialize_asset_should_keep_the_version_marker_out_of_the_asset_folder(tmp_path: Path):
+    assets_dir = tmp_path / "assets"
+    asset = ResolvedAssetPayload(
+        slug="tafsir",
+        asset_version_id=1,
+        resolved_version="1.2.0",
+        asset_name="T",
+        download_url="https://cdn.itqan.dev/t.csv",
+    )
+    responses.add(responses.GET, "https://cdn.itqan.dev/t.csv", body=b"a,b", status=200)
+
+    AssetDownloader(assets_dir=assets_dir).materialize_asset(asset)
+
+    # Flutter bundles every file in a registered folder, so only the asset belongs there.
+    assert [p.name for p in (assets_dir / "tafsir").iterdir()] == ["t.csv"]
+    assert (assets_dir / ".itqan" / "tafsir").read_text() == "1.2.0"
+
+
+@responses.activate
+def test_materialize_asset_where_install_has_the_old_in_folder_marker_should_move_it_without_downloading(
+    tmp_path: Path,
+):
+    assets_dir = tmp_path / "assets"
+    (assets_dir / "tafsir").mkdir(parents=True)
+    (assets_dir / "tafsir" / "t.csv").write_bytes(b"a,b")
+    (assets_dir / "tafsir" / ".itqan_version").write_text("1.2.0")
+    asset = ResolvedAssetPayload(
+        slug="tafsir",
+        asset_version_id=1,
+        resolved_version="1.2.0",
+        asset_name="T",
+        download_url="https://cdn.itqan.dev/t.csv",
+    )
+
+    result = AssetDownloader(assets_dir=assets_dir).materialize_asset(asset)
+
+    assert result.downloaded is False
+    assert len(responses.calls) == 0
+    assert not (assets_dir / "tafsir" / ".itqan_version").exists()
+    assert (assets_dir / ".itqan" / "tafsir").read_text() == "1.2.0"
+
+
+@responses.activate
+def test_materialize_asset_where_old_marker_is_outdated_should_download_and_remove_it(tmp_path: Path):
+    assets_dir = tmp_path / "assets"
+    (assets_dir / "tafsir").mkdir(parents=True)
+    (assets_dir / "tafsir" / "t.csv").write_bytes(b"old")
+    (assets_dir / "tafsir" / ".itqan_version").write_text("1.1.0")
+    asset = ResolvedAssetPayload(
+        slug="tafsir",
+        asset_version_id=1,
+        resolved_version="1.2.0",
+        asset_name="T",
+        download_url="https://cdn.itqan.dev/t.csv",
+    )
+    responses.add(responses.GET, "https://cdn.itqan.dev/t.csv", body=b"new", status=200)
+
+    result = AssetDownloader(assets_dir=assets_dir).materialize_asset(asset)
+
+    assert result.downloaded is True
+    assert [p.name for p in (assets_dir / "tafsir").iterdir()] == ["t.csv"]
+    assert (assets_dir / ".itqan" / "tafsir").read_text() == "1.2.0"
+
+
+def test_materialize_asset_where_entry_is_named_like_the_marker_folder_should_raise(tmp_path: Path):
+    asset = ResolvedAssetPayload(
+        slug=".itqan",
+        asset_version_id=1,
+        resolved_version="1.0.0",
+        asset_name="T",
+        download_url="https://cdn.itqan.dev/t.csv",
+    )
+
+    with pytest.raises(DownloadError, match="reserved"):
+        AssetDownloader(assets_dir=tmp_path).materialize_asset(asset)
