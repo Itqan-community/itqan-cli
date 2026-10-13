@@ -1,6 +1,7 @@
 """`itqan init`: write a starter itqan-assets.yaml from the live catalog."""
 
 from pathlib import Path
+import re
 
 from click.testing import CliRunner
 import requests
@@ -51,6 +52,11 @@ def _mock_catalog(results: list[dict], *, query: dict | None = None) -> None:
     )
 
 
+def _uncomment(text: str) -> str:
+    """The manifest as it reads once the user uncomments every example entry."""
+    return re.sub(r'^  # ("|  )', r"  \1", text, flags=re.MULTILINE)
+
+
 def _init(project: Path, *extra: str):
     return CliRunner().invoke(
         cli, ["init", "-m", str(project / "itqan-assets.yaml"), "--registry-url", REGISTRY, *extra]
@@ -58,7 +64,9 @@ def _init(project: Path, *extra: str):
 
 
 @responses.activate
-def test_init_command_where_catalog_has_assets_should_write_entries_with_language_comments(tmp_path: Path):
+def test_init_command_where_catalog_has_assets_should_write_commented_entries_with_language_comments(
+    tmp_path: Path,
+):
     # Arrange
     _mock_catalog([SINGLE, MULTILINGUAL])
 
@@ -70,7 +78,8 @@ def test_init_command_where_catalog_has_assets_should_write_entries_with_languag
     text = (tmp_path / "itqan-assets.yaml").read_text()
     assert "# Tafsir al-Jalalayn — languages: ar (source, 2.4.0), en (1.3.0)" in text
     assert "# Mushaf Madinah — languages: ar (source, 1.0.0)" in text
-    manifest = parse_manifest_content(text.encode())
+    assert parse_manifest_content(text.encode()).assets == {}  # nothing installs until the user chooses
+    manifest = parse_manifest_content(_uncomment(text).encode())
     assert manifest.assets_dir == "assets"
     assert list(manifest.assets) == ["tafsir-jalalayn", "tafsir-jalalayn-en", "mushaf-madinah"]
     assert manifest.assets["tafsir-jalalayn"].version == "^2.4.0"
@@ -78,6 +87,7 @@ def test_init_command_where_catalog_has_assets_should_write_entries_with_languag
     english = manifest.assets["tafsir-jalalayn-en"]
     assert (english.asset, english.language, english.version) == ("tafsir-jalalayn", "en", "^1.3.0")
     assert "Created" in result.output
+    assert "itqan browse" in result.output
     assert "itqan install" in result.output
 
 
@@ -91,7 +101,7 @@ def test_init_command_where_only_a_translation_is_available_should_set_its_langu
 
     # Assert
     assert result.exit_code == 0, result.output
-    manifest = parse_manifest_content((tmp_path / "itqan-assets.yaml").read_bytes())
+    manifest = parse_manifest_content(_uncomment((tmp_path / "itqan-assets.yaml").read_text()).encode())
     entry = manifest.assets["true"]
     assert entry.language == "fr"
     assert entry.version == "0.2.0-beta.1"  # a prerelease is pinned exactly; ^ would never match it
@@ -183,7 +193,7 @@ def test_init_command_where_manifest_exists_and_force_should_overwrite(tmp_path:
 
     # Assert
     assert result.exit_code == 0, result.output
-    assert "mushaf-madinah" in parse_manifest_content(manifest_path.read_bytes()).assets
+    assert '  # "mushaf-madinah":' in manifest_path.read_text()
 
 
 @responses.activate
@@ -224,3 +234,19 @@ def test_init_command_where_no_flutter_pubspec_should_suggest_plain_install(tmp_
     # Assert
     assert result.exit_code == 0, result.output
     assert "--flutter" not in result.output
+
+
+@responses.activate
+def test_init_command_where_no_asset_has_a_second_language_should_still_show_a_language_entry(tmp_path: Path):
+    # Arrange
+    _mock_catalog([SINGLE])
+
+    # Act
+    result = _init(tmp_path)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    text = (tmp_path / "itqan-assets.yaml").read_text()
+    entry = parse_manifest_content(_uncomment(text).encode()).assets["mushaf-madinah"]
+    assert (entry.language, entry.version) == ("ar", "^1.0.0")
+

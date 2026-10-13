@@ -127,8 +127,8 @@ a folder on your `PATH`.
 Run these in your project's folder:
 
 ```bash
-itqan init        # 1. create itqan-assets.yaml, with a few real assets as examples
-itqan browse      # 2. optional: search the catalog and add the assets you want
+itqan init        # 1. create itqan-assets.yaml, with commented-out example assets
+itqan browse      # 2. search the catalog and add the assets you want (or uncomment the examples)
 itqan install     # 3. download them and write itqan-assets.lock
 ```
 
@@ -220,7 +220,8 @@ the way your platform handles any other data file.
 ## The manifest
 
 `itqan-assets.yaml` lists the assets you want. `itqan init` writes one for you, with comments
-explaining each part. A fuller example:
+explaining each part and a few real assets from the catalog as commented-out examples, one of
+them with a `language:`. A fuller example:
 
 ```yaml
 schema_version: 1
@@ -375,7 +376,7 @@ example, `npm ci` for a project with `itqan-cli` in its `devDependencies`, or
 
 | Command | What it does |
 |---|---|
-| `itqan init` | Create `itqan-assets.yaml` with a few assets from the catalog, or commented examples when offline. `--assets-dir` sets where assets go; `--force` overwrites an existing manifest. |
+| `itqan init` | Create `itqan-assets.yaml` with a few assets from the catalog as commented-out examples (placeholder examples when offline). `--assets-dir` sets where assets go; `--force` overwrites an existing manifest. |
 | `itqan browse [SEARCH]` | Search the catalog, pick assets, add them to `itqan-assets.yaml` (created if missing), and optionally install them. `--category` limits it to one kind of asset; `--no-interactive` prints a table (the default when not in a terminal); `--json` prints JSON. |
 | `itqan install` | Download the assets and write `itqan-assets.lock`. Uses the lockfile's exact versions while it matches the manifest. `--force` picks the newest allowed versions and downloads again. `--flutter` keeps `pubspec.yaml` up to date (see [Flutter](#flutter)). `--assets-dir` overrides the manifest's folder for one run. |
 | `itqan sync` | Same as `itqan install`. |
