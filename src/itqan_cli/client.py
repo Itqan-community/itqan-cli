@@ -21,6 +21,10 @@ class ResolvedAssetPayload:
     publisher_name: str | None = None
     name: str = ""
     language: str | None = None
+    # The publisher went back to an earlier version, withdrawing this one: only an exact
+    # (lockfile) pin still gets it. ``withdrawal_reason`` is the reason they gave.
+    withdrawn: bool = False
+    withdrawal_reason: str | None = None
 
     @property
     def entry_name(self) -> str:
@@ -295,6 +299,8 @@ class RegistryClient:
                         publisher_name=item.get("publisher_name"),
                         name=item.get("name") or item["slug"],
                         language=item.get("language"),
+                        withdrawn=bool(item.get("withdrawn", False)),
+                        withdrawal_reason=item.get("withdrawal_reason"),
                     )
                     for item in results_raw
                 ]
@@ -322,6 +328,11 @@ class RegistryClient:
             friendly_msg = f"Access denied for requested assets (approved access required): {message}"
         elif status_code == 404:
             friendly_msg = f"Asset or version not found in registry: {message}"
+        elif status_code == 410:
+            friendly_msg = (
+                f"Version removed from the registry: {message} "
+                "Run `itqan install --force` to resolve another version, or change it in your manifest."
+            )
         elif status_code == 422:
             friendly_msg = f"Cannot satisfy version constraints: {message}"
         else:

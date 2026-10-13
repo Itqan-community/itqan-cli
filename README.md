@@ -370,6 +370,17 @@ listed under [Install](#install). Install with Python instead: `pipx install itq
 [Assets that need access approval](#assets-that-need-access-approval). In CI, check that
 `ITQAN_API_KEY` is set.
 
+**"Warning: ... was withdrawn by its publisher".** Your lockfile pins a version the publisher
+has since withdrawn by going back to an earlier version, usually because of a mistake in it; the
+warning shows the reason they gave. It still installs, so your build
+keeps working, but new installs no longer get it. Run `itqan install --force` to move to the
+newest supported version in your range, or change the version in `itqan-assets.yaml` if you
+pinned it there.
+
+**"Version removed from the registry" (410).** Itqan removed that version, for example because
+its licence was revoked, and it can't be downloaded any more. Run `itqan install --force` to
+resolve another version, or change the version in `itqan-assets.yaml`.
+
 **Flutter: "Unable to load asset".** Make sure the manifest sits next to `pubspec.yaml`, run
 `itqan install --flutter`, and then restart the app fully. Hot reload doesn't pick up new assets.
 

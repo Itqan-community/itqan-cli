@@ -131,3 +131,79 @@ def test_resolve_manifest_where_called_should_send_installed_version_in_user_age
 
     # Assert
     assert responses.calls[0].request.headers["User-Agent"] == f"itqan-cli/{version('itqan-cli')}"
+
+
+@responses.activate
+def test_resolve_manifest_where_version_withdrawn_should_carry_withdrawal():
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.POST,
+        f"{base_url}/packages/resolve/manifest/",
+        json={
+            "results": [
+                {
+                    "slug": "hafs-tafsir",
+                    "asset_version_id": 7,
+                    "resolved_version": "1.3.0",
+                    "asset_name": "Hafs Tafsir",
+                    "download_url": "https://cdn.itqan.dev/assets/tafsir.csv",
+                    "withdrawn": True,
+                    "withdrawal_reason": "Errors in Surah 2",
+                }
+            ]
+        },
+        status=200,
+    )
+
+    client = RegistryClient(base_url=base_url)
+    results = client.resolve_manifest({"hafs-tafsir": "1.3.0"})
+
+    assert results[0].withdrawn is True
+    assert results[0].withdrawal_reason == "Errors in Surah 2"
+
+
+@responses.activate
+def test_resolve_manifest_where_registry_omits_withdrawn_should_default_to_not_withdrawn():
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.POST,
+        f"{base_url}/packages/resolve/manifest/",
+        json={
+            "results": [
+                {
+                    "slug": "hafs-tafsir",
+                    "asset_version_id": 7,
+                    "resolved_version": "1.3.0",
+                    "asset_name": "Hafs Tafsir",
+                    "download_url": None,
+                }
+            ]
+        },
+        status=200,
+    )
+
+    client = RegistryClient(base_url=base_url)
+    results = client.resolve_manifest({"hafs-tafsir": "1.3.0"})
+
+    assert results[0].withdrawn is False
+    assert results[0].withdrawal_reason is None
+
+
+@responses.activate
+def test_resolve_manifest_where_version_removed_should_raise_registry_api_error_410():
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.POST,
+        f"{base_url}/packages/resolve/manifest/",
+        json={"error_name": "version_removed", "message": "Version 1.0.0 of m1 was removed by Itqan. Licence revoked."},
+        status=410,
+    )
+
+    client = RegistryClient(base_url=base_url)
+    with pytest.raises(RegistryApiError) as exc_info:
+        client.resolve_manifest({"m1": "1.0.0"})
+
+    assert exc_info.value.status_code == 410
+    assert exc_info.value.error_name == "version_removed"
+    assert "Licence revoked." in exc_info.value.message
+    assert "itqan install --force" in exc_info.value.message

@@ -121,6 +121,8 @@ def _run_install(
         )
         pending_lockfile_bytes = serialize_lockfile(new_lockfile)
 
+    _warn_withdrawn(resolved_payloads)
+
     # --- Materialize assets BEFORE writing the lockfile ---
     # If any download fails, we raise immediately and the lockfile is untouched.
     click.echo(f"Materializing {len(resolved_payloads)} asset(s) into {a_dir}...")
@@ -246,6 +248,22 @@ def install_command(
     except Exception as exc:
         click.echo(f"Unexpected error: {exc}", err=True)
         sys.exit(1)
+
+
+def _warn_withdrawn(resolved_payloads: list[ResolvedAssetPayload]) -> None:
+    """Warn about versions the publisher withdrew by going back to an earlier one:
+    they still install from an exact pin, but new resolutions skip them."""
+    for item in resolved_payloads:
+        if not item.withdrawn:
+            continue
+        reason = f": {item.withdrawal_reason}" if item.withdrawal_reason else "."
+        click.secho(
+            f"Warning: {item.entry_name} {item.resolved_version} was withdrawn by its publisher{reason}\n"
+            "  Run `itqan install --force` to move to a supported version "
+            "(or change its version in your manifest if it is pinned there).",
+            fg="yellow",
+            err=True,
+        )
 
 
 def _api_key(api_key: str | None, registry_url: str) -> str | None:
