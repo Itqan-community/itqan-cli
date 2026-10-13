@@ -152,3 +152,56 @@ assets:
     )
     assert result.exit_code == 1
     assert "Authentication required" in result.output
+
+
+@responses.activate
+def test_install_command_where_locked_version_withdrawn_should_install_it_and_warn(runner: CliRunner, tmp_path: Path):
+    manifest_path = tmp_path / "itqan-assets.yaml"
+    lockfile_path = tmp_path / "itqan-assets.lock"
+    assets_dir = tmp_path / "assets"
+    registry_url = "https://api.itqan.dev/api"
+    manifest_path.write_bytes(b"""schema_version: 1
+
+assets:
+  hafs-tafsir:
+    version: "^1.0.0"
+""")
+    responses.add(
+        responses.POST,
+        f"{registry_url}/packages/resolve/manifest/",
+        json={
+            "results": [
+                {
+                    "slug": "hafs-tafsir",
+                    "asset_version_id": 7,
+                    "resolved_version": "1.3.0",
+                    "asset_name": "Hafs Tafsir",
+                    "download_url": "https://cdn.itqan.dev/assets/tafsir.csv",
+                    "withdrawn": True,
+                    "withdrawal_reason": "Errors in Surah 2",
+                }
+            ]
+        },
+        status=200,
+    )
+    responses.add(responses.GET, "https://cdn.itqan.dev/assets/tafsir.csv", body=b"surah,ayah,text\n", status=200)
+
+    result = runner.invoke(
+        cli,
+        [
+            "install",
+            "--manifest",
+            str(manifest_path),
+            "--lockfile",
+            str(lockfile_path),
+            "--assets-dir",
+            str(assets_dir),
+            "--registry-url",
+            registry_url,
+        ],
+    )
+
+    assert result.exit_code == 0, result.output
+    assert "hafs-tafsir 1.3.0 was withdrawn by its publisher: Errors in Surah 2" in result.output
+    assert "itqan install --force" in result.output
+    assert (assets_dir / "hafs-tafsir" / "tafsir.csv").is_file()
