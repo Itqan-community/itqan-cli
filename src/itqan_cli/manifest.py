@@ -40,8 +40,12 @@ class AssetManifestEntry:
     language: str | None = None
 
     def to_request(self, version: str | None = None) -> dict[str, str]:
-        """Registry request for this entry, optionally pinned to ``version``."""
+        """Registry request for this entry, optionally pinned to ``version``. A
+        pinned request also sends the entry's range as ``constraint``, so the
+        registry can report the newest version the range allows."""
         request = {"version": version or self.version}
+        if version is not None:
+            request["constraint"] = self.version
         if self.asset != self.slug:
             request["asset"] = self.asset
         if self.language is not None:

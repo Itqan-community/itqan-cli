@@ -1,4 +1,4 @@
-"""Itqan CLI entrypoint implementing `itqan install`, `sync`, `init` and `browse`."""
+"""Itqan CLI entrypoint implementing the `itqan` commands."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import sys
 
 import click
 
-from itqan_cli import browse, credentials, flutter as flutter_pubspec
+from itqan_cli import browse, credentials, flutter as flutter_pubspec, updates
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
@@ -86,10 +86,7 @@ def _run_install(
         assert manifest is not None
         click.echo("Lockfile is FRESH. Installing locked versions...")
         # In FRESH mode, we query the registry with the locked exact pins
-        locked_requests = {
-            slug: manifest.assets[slug].to_request(version=entry.version) for slug, entry in lockfile.assets.items()
-        }
-        resolved_payloads = client.resolve_manifest(locked_requests)
+        resolved_payloads = client.resolve_manifest(_locked_requests(manifest, lockfile))
     else:
         # MISSING or STALE or force: Resolve against declared constraints
         assert manifest is not None
@@ -167,7 +164,24 @@ def _run_install(
     click.echo(f"Success! {len(download_summary)} asset(s) materialized successfully.")
     if not manifest.assets:
         click.echo(f"{m_path.name} has no assets yet: run `itqan browse` to add some, or uncomment its examples.")
+    _notify_updates(resolved_payloads, manifest)
     return 0
+
+
+def _locked_requests(manifest: AssetManifest, lockfile: AssetLockfile) -> dict[str, dict[str, str]]:
+    """Registry requests pinned to the lockfile's versions."""
+    return {slug: manifest.assets[slug].to_request(version=entry.version) for slug, entry in lockfile.assets.items()}
+
+
+def _notify_updates(resolved_payloads: list[ResolvedAssetPayload], manifest: AssetManifest) -> None:
+    """Say, in a line or two, that newer versions exist. Withdrawn versions are
+    left out: their warning already says to update. ITQAN_NO_UPDATE_NOTICE=1
+    turns it off."""
+    if os.environ.get("ITQAN_NO_UPDATE_NOTICE", "").strip() not in ("", "0"):
+        return
+    current = [item for item in resolved_payloads if not item.withdrawn]
+    for line in updates.summary_lines(updates.find_updates(current, manifest.raw_constraints)):
+        click.echo(line)
 
 
 @cli.command("install", short_help="Download the manifest's assets and write the lockfile.")
@@ -297,6 +311,93 @@ def _explain_access(m_path: Path, registry_url: str, api_key: str | None) -> Non
 sync_command = copy.copy(install_command)
 sync_command.short_help = "Same as `itqan install`."
 cli.add_command(sync_command, name="sync")
+
+
+@cli.command("outdated", short_help="List installed assets that have newer versions.")
+@click.option(
+    "--manifest",
+    "-m",
+    "manifest_path",
+    default="itqan-assets.yaml",
+    show_default=True,
+    help="Path to itqan-assets.yaml manifest.",
+)
+@click.option(
+    "--lockfile",
+    "-l",
+    "lockfile_path",
+    default="itqan-assets.lock",
+    show_default=True,
+    help="Path to itqan-assets.lock lockfile.",
+)
+@click.option("--json", "as_json", is_flag=True, default=False, help="Print the list as JSON.")
+@click.option(
+    "--registry-url",
+    envvar="ITQAN_REGISTRY_URL",
+    default=DEFAULT_REGISTRY_URL,
+    show_default=True,
+    help="URL of the Itqan Package Registry API.",
+)
+@click.option(
+    "--api-key",
+    envvar="ITQAN_API_KEY",
+    default=None,
+    help="API key for authentication & metrics attribution.",
+)
+def outdated_command(
+    manifest_path: str, lockfile_path: str, as_json: bool, registry_url: str, api_key: str | None
+) -> None:
+    """List the locked assets that have newer versions.
+
+    "In range" is the newest version the manifest's range allows, which
+    `itqan install --force` installs. "Latest" is the newest version overall;
+    when the range doesn't allow it, change the range in the manifest to get it.
+    Downloads nothing and changes no files.
+    """
+    m_path = Path(manifest_path)
+    state, manifest, lockfile = evaluate_lockfile_state(m_path, Path(lockfile_path))
+    if state != LockfileState.FRESH:
+        reasons = {
+            LockfileState.ABSENT: f"No manifest found at {m_path}.",
+            LockfileState.INVALID: "Manifest or lockfile is invalid or malformed.",
+            LockfileState.ORPHAN: f"Lockfile exists but manifest {m_path} is missing.",
+            LockfileState.MISSING: "No lockfile yet: run `itqan install` first.",
+            LockfileState.STALE: "The lockfile doesn't match the manifest: run `itqan install` first.",
+        }
+        click.echo(f"Error: {reasons[state]}", err=True)
+        sys.exit(1)
+    assert manifest is not None and lockfile is not None
+
+    api_key = _api_key(api_key, registry_url)
+    try:
+        client = RegistryClient(base_url=registry_url, api_key=api_key)
+        payloads = client.resolve_manifest(_locked_requests(manifest, lockfile)) if lockfile.assets else []
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+
+    found = updates.find_updates(payloads, manifest.raw_constraints)
+    if as_json:
+        click.echo(
+            json.dumps(
+                [
+                    {
+                        "name": u.name,
+                        "installed": u.installed,
+                        "in_range": u.in_range,
+                        "latest": u.beyond_range or u.in_range,
+                    }
+                    for u in found
+                ],
+                indent=2,
+            )
+        )
+    elif found:
+        click.echo(updates.render_table(found))
+    elif payloads and all(item.latest_version is None for item in payloads):
+        click.echo("The registry didn't report newer versions; it may not support this yet.")
+    else:
+        click.echo("All assets are up to date.")
 
 
 @cli.command("init", short_help="Create itqan-assets.yaml with example assets.")

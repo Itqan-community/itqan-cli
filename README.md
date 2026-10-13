@@ -268,6 +268,13 @@ The full format, including every rule and error, is specified in
   versions the manifest allows, and rewrites the lockfile.
 - **Get newer versions within the ranges you already have:** `itqan install --force`.
 - **Install what the lockfile says, for example after cloning or in CI:** `itqan install`.
+- **See which assets have newer versions:** `itqan outdated`. It lists each locked asset that has a
+  newer version, with the newest one your manifest's range allows ("In range", what
+  `itqan install --force` gets) and the newest one overall ("Latest", which needs a range change
+  when it's outside the range). `--json` prints the same list as JSON. It downloads nothing.
+
+`itqan install` also ends with a line saying how many assets have newer versions, if any. Set
+`ITQAN_NO_UPDATE_NOTICE=1` to turn it off.
 
 `itqan install` writes the lockfile only after every download succeeded, so a failed install
 never leaves a lockfile that doesn't match your files.
@@ -380,6 +387,7 @@ example, `npm ci` for a project with `itqan-cli` in its `devDependencies`, or
 | `itqan browse [SEARCH]` | Search the catalog, pick assets, add them to `itqan-assets.yaml` (created if missing), and optionally install them. `--category` limits it to one kind of asset; `--no-interactive` prints a table (the default when not in a terminal); `--json` prints JSON. |
 | `itqan install` | Download the assets and write `itqan-assets.lock`. Uses the lockfile's exact versions while it matches the manifest. `--force` picks the newest allowed versions and downloads again. `--flutter` keeps `pubspec.yaml` up to date (see [Flutter](#flutter)). `--assets-dir` overrides the manifest's folder for one run. |
 | `itqan sync` | Same as `itqan install`. |
+| `itqan outdated` | List the locked assets that have newer versions: the newest your range allows and the newest overall. `--json` prints JSON. |
 | `itqan login` | Save your API key for the registry, after checking it. `--api-key` passes the key without the prompt. |
 | `itqan logout` | Remove the saved key. |
 | `itqan --version` | Print the CLI version. |
@@ -393,6 +401,7 @@ Add `--help` to any command for all its options. `install` and `browse` read the
 |---|---|---|
 | `--api-key` | `ITQAN_API_KEY` | The key saved by `itqan login`, if any. |
 | `--registry-url` | `ITQAN_REGISTRY_URL` | `https://api.cms.itqan.dev`, the public registry. |
+| | `ITQAN_NO_UPDATE_NOTICE` | Set to `1` to stop `itqan install` saying that newer versions exist. |
 | | `ITQAN_CONFIG_DIR` | Where `itqan login` saves keys: `~/.config/itqan` (`%APPDATA%\itqan` on Windows). |
 | | `ITQAN_CACHE_DIR` | Dart package only. Where the downloaded program is kept: `~/Library/Caches/itqan` (macOS), `~/.cache/itqan` (Linux), `%LOCALAPPDATA%\itqan` (Windows). |
 | | `ITQAN_CLI_DOWNLOAD_URL` | Dart package only. A folder (`https://` or `file://`) with a release's programs and `SHA256SUMS`, such as a mirror, used instead of the GitHub Release. |
