@@ -205,3 +205,30 @@ assets:
     assert "hafs-tafsir 1.3.0 was withdrawn by its publisher: Errors in Surah 2" in result.output
     assert "itqan install --force" in result.output
     assert (assets_dir / "hafs-tafsir" / "tafsir.csv").is_file()
+
+
+@responses.activate
+def test_install_command_where_manifest_has_no_assets_should_suggest_browse(runner: CliRunner, tmp_path: Path):
+    # Arrange
+    manifest_path = tmp_path / "itqan-assets.yaml"
+    manifest_path.write_text('schema_version: 1\n\nassets:\n  # "mushaf-madinah":\n  #   version: "^1.0.0"\n')
+    registry_url = "https://api.itqan.dev/api"
+    responses.add(responses.POST, f"{registry_url}/packages/resolve/manifest/", json={"results": []}, status=200)
+
+    # Act
+    result = runner.invoke(
+        cli,
+        [
+            "install",
+            "-m",
+            str(manifest_path),
+            "-l",
+            str(tmp_path / "itqan-assets.lock"),
+            "--registry-url",
+            registry_url,
+        ],
+    )
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "has no assets yet: run `itqan browse`" in result.output

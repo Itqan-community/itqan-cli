@@ -93,25 +93,47 @@ def pick_samples(packages: list[CatalogPackage], count: int = SAMPLE_COUNT) -> l
     return ordered[:count]
 
 
+_CATALOG_INTRO = """\
+  # Examples from the catalog, commented out so nothing is installed until you
+  # choose. Uncomment the ones you want, or run `itqan browse` to search the
+  # catalog and add assets here.
+"""
+
+
+def _commented(lines: list[str], indent: str = "  ") -> list[str]:
+    """``lines`` (entry lines at ``indent``) as YAML comments, keeping their nesting."""
+    return [f"{indent}# {line[len(indent):]}" for line in lines]
+
+
 def render_from_catalog(samples: list[CatalogPackage], assets_dir: str) -> str:
+    """The starter file with ``samples`` as commented-out entries. At least one
+    entry shows `language:`, even when no sample has a second language."""
     lines: list[str] = []
     names: set[str] = set()
+    shows_language = False
     for package in samples:
-        if lines:
-            lines.append("")
+        lines.append("")
         name = " ".join(package.name.split())  # one line, even if the name has newlines
         lines.append(f"  # {name} — languages: {', '.join(_describe(lang) for lang in package.languages)}")
         source = next((lang for lang in package.languages if lang.is_source), None)
         first = source or package.languages[0]
-        lines += entry_lines(package.slug, first.latest_version, language=None if source else first.language)
-        names.add(package.slug)
         other = next((lang for lang in package.languages if lang is not first), None)
+        # Name the source language too when no other entry would show `language:`.
+        language = first.language if source is None or (other is None and not shows_language) else None
+        if not first.language:  # a source language without a code can't be named
+            language = None
+        lines += _commented(entry_lines(package.slug, first.latest_version, language=language))
+        shows_language = shows_language or language is not None
+        names.add(package.slug)
         entry_name = f"{package.slug}-{other.language}" if other else None
         if other is not None and entry_name not in names:
             lines.append(f"  # The same asset in another language ({other.language}):")
-            lines += entry_lines(entry_name, other.latest_version, asset=package.slug, language=other.language)
+            lines += _commented(
+                entry_lines(entry_name, other.latest_version, asset=package.slug, language=other.language)
+            )
             names.add(entry_name)
-    return render_header(assets_dir) + "\n".join(lines) + "\n"
+            shows_language = True
+    return render_header(assets_dir) + _CATALOG_INTRO + "\n".join(lines) + "\n"
 
 
 def render_fallback(assets_dir: str, reason: str) -> str:

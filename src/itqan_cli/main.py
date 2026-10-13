@@ -164,6 +164,8 @@ def _run_install(
             click.echo(f"{pubspec} already lists the asset folders.")
 
     click.echo(f"Success! {len(download_summary)} asset(s) materialized successfully.")
+    if not manifest.assets:
+        click.echo(f"{m_path.name} has no assets yet: run `itqan browse` to add some, or uncomment its examples.")
     return 0
 
 
@@ -326,10 +328,11 @@ cli.add_command(install_command, name="sync")
 )
 @click.option("--force", "-f", is_flag=True, default=False, help="Overwrite an existing manifest.")
 def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key: str | None, force: bool) -> None:
-    """Create itqan-assets.yaml with a few real assets from the registry.
+    """Create itqan-assets.yaml with commented-out example assets.
 
-    If the registry can't be reached, writes the same file with commented-out
-    example entries instead.
+    The examples are real assets from the registry, or placeholders when it
+    can't be reached. Uncomment the ones you want, or add assets with
+    `itqan browse`.
     """
     m_path = Path(manifest_path)
     if m_path.exists() and not force:
@@ -358,14 +361,13 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
     parse_manifest_content(content.encode("utf-8"))  # never write a manifest `install` would reject
     m_path.parent.mkdir(parents=True, exist_ok=True)
     m_path.write_text(content, encoding="utf-8")
-    click.echo(f"Created {m_path} with {len(samples)} sample asset(s).")
+    examples = f" with {len(samples)} commented-out example asset(s)" if samples else " with commented-out examples"
+    click.echo(f"Created {m_path}{examples}.")
+    click.echo("Next, run `itqan browse` to find assets and add them to it, or uncomment the examples.")
     if flutter_pubspec.is_flutter_project(m_path.parent / flutter_pubspec.PUBSPEC):
-        click.echo(
-            "Edit it as needed, then run `itqan install --flutter` to download the assets "
-            f"and list them in {flutter_pubspec.PUBSPEC}."
-        )
+        click.echo(f"Then run `itqan install --flutter` to download them and list them in {flutter_pubspec.PUBSPEC}.")
     else:
-        click.echo("Edit it as needed, then run `itqan install` to download the assets.")
+        click.echo("Then run `itqan install` to download them.")
 
 
 @cli.command("browse")
