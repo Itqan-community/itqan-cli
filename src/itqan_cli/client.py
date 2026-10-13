@@ -25,6 +25,10 @@ class ResolvedAssetPayload:
     # (lockfile) pin still gets it. ``withdrawal_reason`` is the reason they gave.
     withdrawn: bool = False
     withdrawal_reason: str | None = None
+    # Newer versions the registry knows of: the newest overall, and the newest the
+    # manifest's range allows. None from a registry too old to report them.
+    latest_version: str | None = None
+    latest_in_range: str | None = None
 
     @property
     def entry_name(self) -> str:
@@ -301,6 +305,8 @@ class RegistryClient:
                         language=item.get("language"),
                         withdrawn=bool(item.get("withdrawn", False)),
                         withdrawal_reason=item.get("withdrawal_reason"),
+                        latest_version=item.get("latest_version"),
+                        latest_in_range=item.get("latest_in_range"),
                     )
                     for item in results_raw
                 ]
