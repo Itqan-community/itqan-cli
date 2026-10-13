@@ -314,6 +314,57 @@ steps:
 Pass `install: true` to have the action run `itqan install` itself. The
 [action's README](https://github.com/Itqan-community/setup-itqan#readme) lists all its options.
 
+### Get a pull request when assets have new versions
+
+Dependabot and similar tools don't read `itqan-assets.yaml`. To get the same kind of pull request,
+add a workflow that runs `itqan install --force` on a schedule. It picks the newest versions your
+manifest allows, and when that changes the lockfile, it opens a pull request (or updates the open
+one):
+
+```yaml
+# .github/workflows/update-itqan-assets.yml
+name: Update Itqan assets
+
+on:
+  schedule:
+    - cron: "0 6 * * 1"   # every Monday at 06:00 UTC
+  workflow_dispatch:      # and whenever you run it by hand
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: itqan-community/setup-itqan@v1
+      - run: itqan install --force
+        env:
+          ITQAN_API_KEY: ${{ secrets.ITQAN_API_KEY }}   # only needed for assets that need access approval
+      - uses: peter-evans/create-pull-request@v8
+        with:
+          branch: itqan/update-assets
+          commit-message: "chore: update Itqan assets"
+          title: "Update Itqan assets"
+          body: "`itqan install --force` found newer versions allowed by `itqan-assets.yaml`."
+```
+
+The pull request includes `itqan-assets.lock`, and the asset files too if you commit them. Add
+`--flutter` to the install if you use [Flutter](#flutter), so `pubspec.yaml` stays in step.
+
+Two GitHub settings to know about:
+
+- Turn on **Settings > Actions > General > Allow GitHub Actions to create and approve pull
+  requests**, or the last step fails.
+- Pull requests opened with the default `GITHUB_TOKEN` don't start your other workflows, so CI
+  won't run on them by itself. To have it run, give the step a `token:` from a GitHub App or a
+  personal access token, or close and reopen the pull request.
+
+It only moves within the ranges in your manifest. To go to a new major version, change the
+`version:` range yourself.
+
 ### Other CI systems
 
 Install `itqan` with whichever method from [Install](#install) suits your build image. For
