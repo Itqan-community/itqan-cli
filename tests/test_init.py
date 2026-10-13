@@ -250,3 +250,13 @@ def test_init_command_where_no_asset_has_a_second_language_should_still_show_a_l
     entry = parse_manifest_content(_uncomment(text).encode()).assets["mushaf-madinah"]
     assert (entry.language, entry.version) == ("ar", "^1.0.0")
 
+
+def test_cli_help_where_listing_commands_should_not_truncate_their_descriptions():
+    # Act
+    result = CliRunner().invoke(cli, ["--help"], terminal_width=60)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    commands = result.output.split("Commands:")[1]
+    assert "..." not in commands
+    assert "Same as `itqan install`." in result.output

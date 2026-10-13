@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import copy
 import json
 import os
 from pathlib import Path
@@ -169,7 +170,7 @@ def _run_install(
     return 0
 
 
-@cli.command("install")
+@cli.command("install", short_help="Download the manifest's assets and write the lockfile.")
 @click.option(
     "--manifest",
     "-m",
@@ -293,10 +294,12 @@ def _explain_access(m_path: Path, registry_url: str, api_key: str | None) -> Non
 
 
 # Alias: `itqan sync` runs `install`
-cli.add_command(install_command, name="sync")
+sync_command = copy.copy(install_command)
+sync_command.short_help = "Same as `itqan install`."
+cli.add_command(sync_command, name="sync")
 
 
-@cli.command("init")
+@cli.command("init", short_help="Create itqan-assets.yaml with example assets.")
 @click.option(
     "--manifest",
     "-m",
@@ -370,7 +373,7 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
         click.echo("Then run `itqan install` to download them.")
 
 
-@cli.command("browse")
+@cli.command("browse", short_help="Search the catalog and add assets to the manifest.")
 @click.argument("query", required=False)
 @click.option("--category", "-c", default=None, help="Only assets of this category (mushaf, tafsir, translation, ...).")
 @click.option(
@@ -516,7 +519,7 @@ def _add_to_manifest(
 API_KEYS_PAGE = "https://cms.itqan.dev/account/api-keys"
 
 
-@cli.command("login")
+@cli.command("login", short_help="Save your API key for assets that need approval.")
 @click.option(
     "--registry-url",
     envvar="ITQAN_REGISTRY_URL",
@@ -563,7 +566,7 @@ def login_command(registry_url: str, api_key: str | None) -> None:
     click.echo(f"Logged in to {registry_url}{who}. Key saved in {path}.")
 
 
-@cli.command("logout")
+@cli.command("logout", short_help="Remove the saved API key.")
 @click.option(
     "--registry-url",
     envvar="ITQAN_REGISTRY_URL",
