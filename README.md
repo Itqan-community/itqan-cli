@@ -150,6 +150,18 @@ Commit `itqan-assets.yaml` and `itqan-assets.lock`. You can commit the `assets/`
 add it to `.gitignore` and run `itqan install` after cloning (and in CI), which downloads exactly
 the versions in the lockfile.
 
+Already know the asset you want? `itqan add` puts it in the manifest and installs it in one step,
+like `uv add` or `npm install <package>`:
+
+```bash
+itqan add tafsir-jalalayn                  # the source language, accepting ^ the newest version
+itqan add tafsir-jalalayn --language en    # another language of the same asset
+itqan add tafsir-jalalayn@~2.1             # your own version range
+```
+
+The asset's name is the one `itqan browse` and each asset's page in the
+[asset library](https://cms.itqan.dev) show. `--no-install` only edits the manifest.
+
 In `itqan browse`, type to filter the list, press Enter to add the highlighted asset, or press
 Space on several and then Enter. `itqan browse tafsir` starts with a search, and
 `itqan browse --category translation` shows one kind of asset.
@@ -263,6 +275,7 @@ The full format, including every rule and error, is specified in
 
 ## Updating assets
 
+- **Add an asset:** `itqan add <asset>`, or `itqan browse` to search for one.
 - **Add or remove an asset, or change a `version:` range:** edit `itqan-assets.yaml` and run
   `itqan install`. It sees that the lockfile no longer matches the manifest, picks the newest
   versions the manifest allows, and rewrites the lockfile.
@@ -385,6 +398,7 @@ example, `npm ci` for a project with `itqan-cli` in its `devDependencies`, or
 |---|---|
 | `itqan init` | Create `itqan-assets.yaml` with a few assets from the catalog as commented-out examples (placeholder examples when offline). `--assets-dir` sets where assets go; `--force` overwrites an existing manifest. |
 | `itqan browse [SEARCH]` | Search the catalog, pick assets, add them to `itqan-assets.yaml` (created if missing), and optionally install them. `--category` limits it to one kind of asset; `--no-interactive` prints a table (the default when not in a terminal); `--json` prints JSON. |
+| `itqan add ASSET[@RANGE]...` | Add assets to `itqan-assets.yaml` (created if missing) and install them. Without `@RANGE` an entry accepts `^` the newest version; an asset already in the manifest gets the new range. `--language` picks a language other than the source; `--no-install` only edits the manifest. |
 | `itqan install` | Download the assets and write `itqan-assets.lock`. Uses the lockfile's exact versions while it matches the manifest. `--force` picks the newest allowed versions and downloads again. `--flutter` keeps `pubspec.yaml` up to date (see [Flutter](#flutter)). `--assets-dir` overrides the manifest's folder for one run. |
 | `itqan sync` | Same as `itqan install`. |
 | `itqan outdated` | List the locked assets that have newer versions: the newest your range allows and the newest overall. `--json` prints JSON. |
