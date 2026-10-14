@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import json
 import os
 from pathlib import Path
@@ -10,7 +11,7 @@ import sys
 
 import click
 
-from itqan_cli import browse, credentials, flutter as flutter_pubspec, updates
+from itqan_cli import add, browse, credentials, flutter as flutter_pubspec, updates
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
@@ -614,6 +615,143 @@ def _add_to_manifest(
     m_path.parent.mkdir(parents=True, exist_ok=True)
     m_path.write_text(updated, encoding="utf-8")
     return [entry.name for entry in entries]
+
+
+@cli.command("add", short_help="Add assets to the manifest and install them.")
+@click.argument("specs", nargs=-1, required=True, metavar="ASSET[@RANGE]...")
+@click.option(
+    "--language", "-L", default=None, help="Language to add, such as `en`. Default: each asset's source language."
+)
+@click.option(
+    "--install/--no-install",
+    default=True,
+    show_default=True,
+    help="Install right after editing the manifest, or only edit it.",
+)
+@click.option(
+    "--manifest",
+    "-m",
+    "manifest_path",
+    default="itqan-assets.yaml",
+    show_default=True,
+    help="Manifest to add the assets to; created if missing.",
+)
+@click.option(
+    "--lockfile",
+    "-l",
+    "lockfile_path",
+    default="itqan-assets.lock",
+    show_default=True,
+    help="Path to itqan-assets.lock lockfile.",
+)
+@click.option(
+    "--registry-url",
+    envvar="ITQAN_REGISTRY_URL",
+    default=DEFAULT_REGISTRY_URL,
+    show_default=True,
+    help="URL of the Itqan Package Registry API.",
+)
+@click.option(
+    "--api-key",
+    envvar="ITQAN_API_KEY",
+    default=None,
+    help="API key; needed for assets that need access approval.",
+)
+def add_command(
+    specs: tuple[str, ...],
+    language: str | None,
+    install: bool,
+    manifest_path: str,
+    lockfile_path: str,
+    registry_url: str,
+    api_key: str | None,
+) -> None:
+    """Add assets to itqan-assets.yaml, then install them.
+
+    ASSET is the asset's name in the catalog, as `itqan browse` shows it. Add
+    @RANGE to choose which versions it accepts, as in `tafsir-jalalayn@~2.1`;
+    without it, the entry accepts the newest version and later compatible ones
+    (`^`). An asset already in the manifest gets the new range. The manifest is
+    created if missing.
+    """
+    m_path = Path(manifest_path)
+    api_key = _api_key(api_key, registry_url)
+    try:
+        requested = [add.parse_spec(spec) for spec in specs]
+        manifest = load_manifest(m_path) if m_path.exists() else None
+        content = m_path.read_text(encoding="utf-8") if manifest is not None else render_header(DEFAULT_ASSETS_DIR)
+        client = RegistryClient(base_url=registry_url, api_key=api_key)
+
+        picks: list[tuple[CatalogPackage, CatalogLanguage]] = []
+        constraints: dict[tuple[str, str], str] = {}
+        blocked: list[CatalogPackage] = []
+        changed: list[str] = []
+        for slug, constraint in requested:
+            package = _find_package(client, slug)
+            if not browse.can_install(package, has_api_key=bool(api_key)):
+                blocked.append(package)
+                continue
+            rendition = add.pick_language(package, language)
+            existing = add.existing_entry(manifest, package, rendition)
+            if existing is None:
+                picks.append((package, rendition))
+                if constraint:
+                    constraints[(package.slug, rendition.language)] = constraint
+            elif constraint and manifest.assets[existing].version != constraint:
+                content = add.set_entry_version(content, existing, constraint)
+                changed.append(f"{existing} → {constraint}")
+            else:
+                click.echo(f"{existing} is already in {m_path.name}.")
+        if blocked:
+            names = ", ".join(package.slug for package in blocked)
+            click.echo(f"Error: You don't have access to {names}.", err=True)
+            for line in browse.access_footer(blocked, has_api_key=bool(api_key)):
+                click.echo(line, err=True)
+            sys.exit(1)
+
+        entries, warnings = browse.plan_entries(picks, manifest)
+        for warning in warnings:
+            click.echo(f"Warning: {warning}", err=True)
+        entries = [
+            dataclasses.replace(entry, constraint=constraints.get((entry.package.slug, entry.language.language)))
+            for entry in entries
+        ]
+        if entries:
+            content = browse.add_entries(content, entries)
+        if entries or changed:
+            m_path.parent.mkdir(parents=True, exist_ok=True)
+            m_path.write_text(content, encoding="utf-8")
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+
+    if entries:
+        click.echo(f"Added to {m_path}: {', '.join(entry.name for entry in entries)}")
+    if changed:
+        click.echo(f"Updated in {m_path}: {', '.join(changed)}")
+    if not install:
+        click.echo("Run `itqan install` when you're ready to download them.")
+        return
+    install_command.callback(
+        manifest_path=str(m_path),
+        lockfile_path=lockfile_path,
+        assets_dir=None,
+        registry_url=registry_url,
+        api_key=api_key,
+        force=False,
+    )
+
+
+def _find_package(client: RegistryClient, slug: str) -> CatalogPackage:
+    """The catalog asset named ``slug``.
+
+    Raises:
+        ItqanCliError when the catalog has no installable asset by that name.
+    """
+    package = next((p for p in client.list_all_packages(search=slug) if p.slug == slug), None)
+    if package is None:
+        raise ItqanCliError(f"No installable asset named {slug!r}. Search for it with `itqan browse {slug}`.")
+    return package
 
 
 # Where users create API keys in the CMS web app.

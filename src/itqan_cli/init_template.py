@@ -66,16 +66,23 @@ def _describe(language: CatalogLanguage) -> str:
 
 
 def entry_lines(
-    name: str, version: str, *, asset: str | None = None, language: str | None = None, indent: str = "  "
+    name: str,
+    version: str,
+    *,
+    asset: str | None = None,
+    language: str | None = None,
+    indent: str = "  ",
+    constraint: str | None = None,
 ) -> list[str]:
-    """One manifest entry under `assets:`, constrained to ``^version``; ``indent``
-    is the entry key's indentation, and its fields go one level deeper."""
+    """One manifest entry under `assets:`, constrained to ``^version`` unless
+    ``constraint`` is given; ``indent`` is the entry key's indentation, and its
+    fields go one level deeper."""
     lines = [f"{indent}{_quote(name)}:"]
     if asset is not None:
         lines.append(f"{indent * 2}asset: {_quote(asset)}")
     if language is not None:
         lines.append(f"{indent * 2}language: {_quote(language)}")
-    lines.append(f"{indent * 2}version: {_quote(_constraint(version))}")
+    lines.append(f"{indent * 2}version: {_quote(constraint or _constraint(version))}")
     return lines
 
 
