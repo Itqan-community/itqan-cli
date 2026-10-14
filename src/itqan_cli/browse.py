@@ -30,16 +30,18 @@ class NewEntry:
     name: str
     package: CatalogPackage
     language: CatalogLanguage
+    constraint: str | None = None  # None: ^ the language's latest version
 
     def lines(self, indent: str) -> list[str]:
         if self.language.is_source:
-            return entry_lines(self.name, self.language.latest_version, indent=indent)
+            return entry_lines(self.name, self.language.latest_version, indent=indent, constraint=self.constraint)
         return entry_lines(
             self.name,
             self.language.latest_version,
             asset=self.package.slug,
             language=self.language.language,
             indent=indent,
+            constraint=self.constraint,
         )
 
 
