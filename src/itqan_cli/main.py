@@ -607,7 +607,11 @@ def browse_command(
 
     import questionary
 
-    if questionary.confirm("Run `itqan install` now?", default=True).ask():
+    # In a Flutter project, offer the install that also lists the folders in pubspec.yaml;
+    # the question names --flutter, so saying yes is the opt-in.
+    flutter = flutter_pubspec.is_flutter_project(m_path.parent / flutter_pubspec.PUBSPEC)
+    command = "itqan install --flutter" if flutter else "itqan install"
+    if questionary.confirm(f"Run `{command}` now?", default=True).ask():
         install_command.callback(
             manifest_path=str(m_path),
             lockfile_path=lockfile_path,
@@ -615,9 +619,10 @@ def browse_command(
             registry_url=registry_url,
             api_key=api_key,
             force=False,
+            flutter=True if flutter else None,
         )
     else:
-        click.echo("Run `itqan install` when you're ready to download them.")
+        click.echo(f"Run `{command}` when you're ready to download them.")
 
 
 def _add_to_manifest(

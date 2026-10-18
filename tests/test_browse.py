@@ -8,7 +8,7 @@ import pytest
 import responses
 from responses import matchers
 
-from itqan_cli import browse
+from itqan_cli import browse, main
 from itqan_cli.client import CatalogLanguage, CatalogPackage, RegistryClient
 from itqan_cli.exceptions import ManifestError, RegistryApiError
 from itqan_cli.init_template import render_fallback, render_from_catalog
@@ -300,6 +300,64 @@ def test_browse_command_where_assets_picked_should_create_manifest_with_them(tmp
     assert list(manifest.assets) == ["mushaf-madinah", "tafsir-jalalayn", "tafsir-jalalayn-en"]
     assert "Added 3 asset(s)" in result.output
     assert "Run `itqan install` when you're ready" in result.output
+
+
+def _pick_everything_and_answer(monkeypatch, answer: bool) -> tuple[list[str], list[dict]]:
+    """Pick every listed asset, answer the install question; returns the questions and install calls."""
+    asked: list[str] = []
+    installs: list[dict] = []
+    monkeypatch.setattr(browse, browse.pick_packages.__name__, lambda packages, targets, has_api_key: packages)
+    monkeypatch.setattr(browse, browse.pick_languages.__name__, lambda package, targets: list(package.languages))
+    monkeypatch.setattr(
+        "questionary.confirm",
+        lambda question, **kwargs: asked.append(question) or type("Q", (), {"ask": lambda self: answer})(),
+    )
+    monkeypatch.setattr(main.install_command, "callback", lambda **kwargs: installs.append(kwargs))
+    return asked, installs
+
+
+@responses.activate
+@pytest.mark.parametrize(
+    ("pubspec", "command", "flutter"),
+    [
+        ("name: app\nflutter:\n  uses-material-design: true\n", "itqan install --flutter", True),
+        ("name: pure_dart\n", "itqan install", None),
+        (None, "itqan install", None),
+    ],
+    ids=["flutter project", "dart package", "no pubspec"],
+)
+def test_browse_command_where_user_installs_should_offer_flutter_only_in_a_flutter_project(
+    tmp_path: Path, monkeypatch, pubspec: str | None, command: str, flutter: bool | None
+):
+    # Arrange
+    _mock_catalog([SINGLE])
+    if pubspec is not None:
+        (tmp_path / "pubspec.yaml").write_text(pubspec)
+    asked, installs = _pick_everything_and_answer(monkeypatch, True)
+
+    # Act
+    result = _browse(tmp_path, "--interactive")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert asked == [f"Run `{command}` now?"]
+    assert [call["flutter"] for call in installs] == [flutter]
+
+
+@responses.activate
+def test_browse_command_where_flutter_user_declines_install_should_suggest_install_flutter(tmp_path: Path, monkeypatch):
+    # Arrange
+    _mock_catalog([SINGLE])
+    (tmp_path / "pubspec.yaml").write_text("name: app\nflutter:\n  uses-material-design: true\n")
+    _, installs = _pick_everything_and_answer(monkeypatch, False)
+
+    # Act
+    result = _browse(tmp_path, "--interactive")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert installs == []
+    assert "Run `itqan install --flutter` when you're ready" in result.output
 
 
 @responses.activate
