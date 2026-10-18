@@ -1,3 +1,25 @@
+## v0.3.0 (2026-10-18)
+
+### Feat
+
+- `itqan add ASSET[@RANGE]...` adds assets to `itqan-assets.yaml` (creating it if missing) and
+  installs them. Without a range it accepts the newest version (`^`); `--language` picks another
+  language and `--no-install` only edits the manifest. Unknown assets, assets you don't have access
+  to and unavailable languages fail before anything is written.
+- `itqan install` says when your locked assets have newer versions, split into those your range
+  allows (`itqan install --force`) and those it doesn't. `ITQAN_NO_UPDATE_NOTICE=1` turns it off.
+  The new `itqan outdated` command lists them, or prints them as JSON with `--json`.
+- warn when a locked version was withdrawn by its publisher: `itqan install` still installs it and
+  shows the publisher's reason and how to move off it. A version removed by an Itqan admin fails
+  with an explanation and suggests `itqan install --force`.
+- **init**: `itqan init` writes the example assets commented out instead of installing them right
+  away, and suggests `itqan browse` to find assets.
+
+### Fix
+
+- **cli**: `itqan --help` shows each command's full description instead of cutting it off with
+  `...`.
+
 ## v0.2.0 (2026-10-12)
 
 ### Feat
