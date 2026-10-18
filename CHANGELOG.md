@@ -1,3 +1,15 @@
+## v0.4.0 (2026-10-18)
+
+### Feat
+
+- **install**: `itqan install` shows each download's progress in a terminal: bytes done and total,
+  percent, rate and time left, or a running byte count when the size isn't known. Piped and CI
+  output stays the same; `--no-progress` or `TERM=dumb` turns it off.
+- **init**: `itqan init` asks whether to run `itqan browse` once it has written the manifest, so
+  you can pick assets straight away.
+- **browse**: in a Flutter project, `itqan browse` offers to run `itqan install --flutter`, so the
+  installed asset folders get listed in `pubspec.yaml`.
+
 ## v0.3.0 (2026-10-18)
 
 ### Feat
