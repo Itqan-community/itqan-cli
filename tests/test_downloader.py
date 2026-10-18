@@ -1,5 +1,6 @@
 """Tests for AssetDownloader idempotency and atomic materialization."""
 
+import gzip
 from pathlib import Path
 
 import pytest
@@ -152,3 +153,97 @@ def test_materialize_asset_where_entry_is_named_like_the_marker_folder_should_ra
 
     with pytest.raises(DownloadError, match="reserved"):
         AssetDownloader(assets_dir=tmp_path).materialize_asset(asset)
+
+
+def _progress_asset() -> ResolvedAssetPayload:
+    return ResolvedAssetPayload(
+        slug="quran-hafs",
+        asset_version_id=1,
+        resolved_version="1.2.0",
+        asset_name="Quran Hafs",
+        download_url="https://cdn.itqan.dev/quran.zip",
+    )
+
+
+BODY = b"x" * (65536 * 2 + 10)  # two full chunks and a short one
+
+
+@responses.activate
+def test_materialize_asset_where_content_length_given_should_report_progress_per_chunk(tmp_path: Path):
+    # Arrange
+    responses.add(
+        responses.GET, "https://cdn.itqan.dev/quran.zip", body=BODY, headers={"Content-Length": str(len(BODY))}
+    )
+    calls: list[tuple[int, int | None]] = []
+
+    # Act
+    AssetDownloader(assets_dir=tmp_path).materialize_asset(_progress_asset(), on_progress=lambda *a: calls.append(a))
+
+    # Assert
+    total = len(BODY)
+    assert calls == [(0, total), (65536, total), (131072, total), (total, total)]
+
+
+@responses.activate
+def test_materialize_asset_where_no_content_length_should_report_progress_with_unknown_total(tmp_path: Path):
+    # Arrange
+    responses.add(responses.GET, "https://cdn.itqan.dev/quran.zip", body=BODY)
+    calls: list[tuple[int, int | None]] = []
+
+    # Act
+    AssetDownloader(assets_dir=tmp_path).materialize_asset(_progress_asset(), on_progress=lambda *a: calls.append(a))
+
+    # Assert
+    assert calls == [(0, None), (65536, None), (131072, None), (len(BODY), None)]
+
+
+@responses.activate
+def test_materialize_asset_where_response_is_compressed_should_report_unknown_total(tmp_path: Path):
+    # Arrange: Content-Length counts compressed bytes, but the file is written decompressed.
+    compressed = gzip.compress(BODY)
+    responses.add(
+        responses.GET,
+        "https://cdn.itqan.dev/quran.zip",
+        body=compressed,
+        headers={"Content-Encoding": "gzip", "Content-Length": str(len(compressed))},
+    )
+    calls: list[tuple[int, int | None]] = []
+
+    # Act
+    result = AssetDownloader(assets_dir=tmp_path).materialize_asset(
+        _progress_asset(), on_progress=lambda *a: calls.append(a)
+    )
+
+    # Assert
+    assert {total for _, total in calls} == {None}
+    assert calls[-1][0] == result.size_bytes == len(BODY)
+
+
+@responses.activate
+def test_materialize_asset_where_asset_is_cached_should_not_report_progress(tmp_path: Path):
+    # Arrange
+    responses.add(responses.GET, "https://cdn.itqan.dev/quran.zip", body=BODY)
+    downloader = AssetDownloader(assets_dir=tmp_path)
+    downloader.materialize_asset(_progress_asset())
+    calls: list[tuple[int, int | None]] = []
+
+    # Act
+    result = downloader.materialize_asset(_progress_asset(), on_progress=lambda *a: calls.append(a))
+
+    # Assert
+    assert result.downloaded is False
+    assert calls == []
+
+
+@responses.activate
+def test_materialize_asset_where_server_errors_should_not_report_progress(tmp_path: Path):
+    # Arrange
+    responses.add(responses.GET, "https://cdn.itqan.dev/quran.zip", status=500)
+    calls: list[tuple[int, int | None]] = []
+
+    # Act / Assert
+    with pytest.raises(DownloadError):
+        AssetDownloader(assets_dir=tmp_path).materialize_asset(
+            _progress_asset(), on_progress=lambda *a: calls.append(a)
+        )
+    assert calls == []

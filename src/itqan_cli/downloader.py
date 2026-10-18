@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 import os
 from pathlib import Path
@@ -19,6 +20,9 @@ _MARKER_DIR = ".itqan"
 # Where versions before 0.2 kept the marker: inside the asset folder. Still read, then moved.
 # A download URL must never produce a basename matching it, or it would clobber the marker.
 _RESERVED_FILENAME = ".itqan_version"
+
+# on_progress(downloaded_bytes, total_bytes): total is None when the server doesn't say.
+ProgressCallback = Callable[[int, int | None], None]
 
 
 def _validate_slug(slug: str) -> None:
@@ -113,6 +117,7 @@ class AssetDownloader:
         asset: ResolvedAssetPayload,
         *,
         force: bool = False,
+        on_progress: ProgressCallback | None = None,
     ) -> DownloadResult:
         """Materialize a single resolved asset into the assets/<entry name>/ folder.
 
@@ -122,6 +127,8 @@ class AssetDownloader:
         Ensures:
         - Safety: slug is validated against path traversal before any I/O.
         - Idempotency: skip if already present and non-empty.
+        - Progress: `on_progress` is called once the server answers and after every
+          chunk, never for a cached asset.
         - Atomicity: stream to temp file and rename upon success.
         - Marker atomicity: version marker is staged as a temp file then
           renamed — both the artifact and its marker are committed together
@@ -198,9 +205,16 @@ class AssetDownloader:
                         raise DownloadError(
                             f"Failed to download '{asset.slug}' from {asset.download_url}: HTTP {resp.status_code}"
                         )
+                    total = _content_length(resp)
+                    done = 0
+                    if on_progress:
+                        on_progress(done, total)
                     for chunk in resp.iter_content(chunk_size=65536):
                         if chunk:
                             f_out.write(chunk)
+                            done += len(chunk)
+                            if on_progress:
+                                on_progress(done, total)
 
             # Write version string to the staged marker tmp file
             marker_tmp.write_text(asset.resolved_version, encoding="utf-8")
@@ -233,6 +247,18 @@ class AssetDownloader:
             if isinstance(exc, DownloadError):
                 raise
             raise DownloadError(f"Error downloading asset '{asset.slug}': {exc}") from exc
+
+
+def _content_length(resp: requests.Response) -> int | None:
+    """The body size in bytes, or None when unknown. A compressed response's Content-Length
+    counts compressed bytes, but iter_content yields them decompressed, so it's unknown too."""
+    if resp.headers.get("Content-Encoding", "identity").lower() != "identity":
+        return None
+    try:
+        length = int(resp.headers["Content-Length"])
+    except (KeyError, ValueError):
+        return None
+    return length if length >= 0 else None
 
 
 def _read_marker(marker: Path) -> str | None:

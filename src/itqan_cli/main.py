@@ -11,7 +11,7 @@ import sys
 
 import click
 
-from itqan_cli import add, browse, credentials, flutter as flutter_pubspec, updates
+from itqan_cli import add, browse, credentials, flutter as flutter_pubspec, progress, updates
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
@@ -45,6 +45,7 @@ def _run_install(
     api_key: str | None,
     force: bool,
     flutter: bool | None = None,
+    no_progress: bool = False,
 ) -> int:
     m_path = Path(manifest_path)
     l_path = Path(lockfile_path)
@@ -126,9 +127,19 @@ def _run_install(
     # If any download fails, we raise immediately and the lockfile is untouched.
     click.echo(f"Materializing {len(resolved_payloads)} asset(s) into {a_dir}...")
     download_summary = []
+    show_progress = progress.enabled(no_progress)
 
-    for item in resolved_payloads:
-        res = downloader.materialize_asset(item, force=force)
+    for index, item in enumerate(resolved_payloads, start=1):
+        bar = None
+        if show_progress:
+            bar = progress.DownloadProgress(
+                f"({index}/{len(resolved_payloads)}) {item.entry_name} [{item.resolved_version}]"
+            )
+        try:
+            res = downloader.materialize_asset(item, force=force, on_progress=bar)
+        finally:
+            if bar:
+                bar.clear()
         status_str = "downloaded" if res.downloaded else "cached (up-to-date)"
         click.echo(f"  * {res.slug} [{res.version}]: {status_str} -> {res.target_path}")
         download_summary.append(res)
@@ -236,6 +247,12 @@ def _notify_updates(resolved_payloads: list[ResolvedAssetPayload], manifest: Ass
     help="List the installed asset folders under `flutter: assets:` in the pubspec.yaml next to the manifest. "
     "Once used, later installs keep that list up to date without the flag.",
 )
+@click.option(
+    "--no-progress",
+    is_flag=True,
+    default=False,
+    help="Don't draw download progress. It's only drawn in a terminal, and not when TERM=dumb.",
+)
 def install_command(
     manifest_path: str,
     lockfile_path: str,
@@ -244,6 +261,7 @@ def install_command(
     api_key: str | None,
     force: bool,
     flutter: bool | None = None,
+    no_progress: bool = False,
 ) -> None:
     """Install assets declared in itqan-assets.yaml."""
     api_key = _api_key(api_key, registry_url)
@@ -256,6 +274,7 @@ def install_command(
             api_key=api_key,
             force=force,
             flutter=flutter,
+            no_progress=no_progress,
         )
         sys.exit(exit_code)
     except ItqanCliError as exc:
