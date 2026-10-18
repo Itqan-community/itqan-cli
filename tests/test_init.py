@@ -4,10 +4,12 @@ from pathlib import Path
 import re
 
 from click.testing import CliRunner
+import pytest
 import requests
 import responses
 from responses import matchers
 
+from itqan_cli import browse, main
 from itqan_cli.main import cli
 from itqan_cli.manifest import parse_manifest_content
 
@@ -249,6 +251,79 @@ def test_init_command_where_no_asset_has_a_second_language_should_still_show_a_l
     text = (tmp_path / "itqan-assets.yaml").read_text()
     entry = parse_manifest_content(_uncomment(text).encode()).assets["mushaf-madinah"]
     assert (entry.language, entry.version) == ("ar", "^1.0.0")
+
+
+def _answer_confirm(monkeypatch, answer: bool | None) -> list[str]:
+    """Answer every questionary yes/no prompt with `answer`; returns the questions asked."""
+    asked: list[str] = []
+
+    def confirm(question, **kwargs):
+        asked.append(question)
+        return type("Q", (), {"ask": lambda self: answer})()
+
+    monkeypatch.setattr("questionary.confirm", confirm)
+    return asked
+
+
+@responses.activate
+def test_init_command_where_in_a_terminal_and_user_says_yes_should_run_browse(tmp_path: Path, monkeypatch):
+    # Arrange
+    _mock_catalog([SINGLE])
+    _mock_catalog([SINGLE], query={"page_size": "50"})  # browse lists the whole catalog
+    monkeypatch.setattr(main, main._interactive_terminal.__name__, lambda: True)
+    asked = _answer_confirm(monkeypatch, True)
+    shown: list[list[str]] = []
+    monkeypatch.setattr(
+        browse,
+        browse.pick_packages.__name__,
+        lambda packages, targets, has_api_key: shown.append([p.slug for p in packages]),
+    )
+
+    # Act
+    result = _init(tmp_path)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert asked == ["Run `itqan browse` now to pick assets to add?"]
+    assert shown == [["mushaf-madinah"]]
+    assert (tmp_path / "itqan-assets.yaml").is_file()
+    assert "Next, run `itqan browse`" not in result.output
+
+
+@responses.activate
+@pytest.mark.parametrize("answer", [False, None], ids=["no", "ctrl-c"])
+def test_init_command_where_in_a_terminal_and_user_declines_should_print_next_steps(
+    tmp_path: Path, monkeypatch, answer: bool | None
+):
+    # Arrange
+    _mock_catalog([SINGLE])
+    monkeypatch.setattr(main, main._interactive_terminal.__name__, lambda: True)
+    asked = _answer_confirm(monkeypatch, answer)
+
+    # Act
+    result = _init(tmp_path)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert len(asked) == 1
+    assert "Next, run `itqan browse`" in result.output
+    assert len(responses.calls) == 1  # browse never listed the catalog
+
+
+@responses.activate
+def test_init_command_where_not_in_a_terminal_should_not_ask_to_browse(tmp_path: Path, monkeypatch):
+    # Arrange
+    _mock_catalog([SINGLE])
+    monkeypatch.setattr(main, main._interactive_terminal.__name__, lambda: False)
+    asked = _answer_confirm(monkeypatch, True)
+
+    # Act
+    result = _init(tmp_path)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert asked == []
+    assert "Next, run `itqan browse`" in result.output
 
 
 def test_cli_help_where_listing_commands_should_not_truncate_their_descriptions():
