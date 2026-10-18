@@ -128,7 +128,7 @@ Run these in your project's folder:
 
 ```bash
 itqan init        # 1. create itqan-assets.yaml, with commented-out example assets
-itqan browse      # 2. search the catalog and add the assets you want (or uncomment the examples)
+itqan browse      # 2. search the catalog and add the assets you want (init offers to run it for you)
 itqan install     # 3. download them and write itqan-assets.lock
 ```
 
@@ -396,7 +396,7 @@ example, `npm ci` for a project with `itqan-cli` in its `devDependencies`, or
 
 | Command | What it does |
 |---|---|
-| `itqan init` | Create `itqan-assets.yaml` with a few assets from the catalog as commented-out examples (placeholder examples when offline). `--assets-dir` sets where assets go; `--force` overwrites an existing manifest. |
+| `itqan init` | Create `itqan-assets.yaml` with a few assets from the catalog as commented-out examples (placeholder examples when offline), then offers to run `itqan browse` when run in a terminal. `--assets-dir` sets where assets go; `--force` overwrites an existing manifest. |
 | `itqan browse [SEARCH]` | Search the catalog, pick assets, add them to `itqan-assets.yaml` (created if missing), and optionally install them. `--category` limits it to one kind of asset; `--no-interactive` prints a table (the default when not in a terminal); `--json` prints JSON. |
 | `itqan add ASSET[@RANGE]...` | Add assets to `itqan-assets.yaml` (created if missing) and install them. Without `@RANGE` an entry accepts `^` the newest version; an asset already in the manifest gets the new range. `--language` picks a language other than the source; `--no-install` only edits the manifest. |
 | `itqan install` | Download the assets and write `itqan-assets.lock`. Uses the lockfile's exact versions while it matches the manifest. `--force` picks the newest allowed versions and downloads again. `--flutter` keeps `pubspec.yaml` up to date (see [Flutter](#flutter)). `--assets-dir` overrides the manifest's folder for one run. |

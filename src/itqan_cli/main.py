@@ -284,6 +284,11 @@ def _warn_withdrawn(resolved_payloads: list[ResolvedAssetPayload]) -> None:
         )
 
 
+def _interactive_terminal() -> bool:
+    """Whether a person is at the keyboard to answer prompts."""
+    return sys.stdin.isatty() and sys.stdout.isatty()
+
+
 def _api_key(api_key: str | None, registry_url: str) -> str | None:
     """--api-key / ITQAN_API_KEY when given, else the key `itqan login` saved for this registry."""
     if api_key:
@@ -437,7 +442,7 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
 
     The examples are real assets from the registry, or placeholders when it
     can't be reached. Uncomment the ones you want, or add assets with
-    `itqan browse`.
+    `itqan browse`, which init offers to run when used in a terminal.
     """
     m_path = Path(manifest_path)
     if m_path.exists() and not force:
@@ -468,6 +473,21 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
     m_path.write_text(content, encoding="utf-8")
     examples = f" with {len(samples)} commented-out example asset(s)" if samples else " with commented-out examples"
     click.echo(f"Created {m_path}{examples}.")
+    if _interactive_terminal():
+        import questionary
+
+        if questionary.confirm("Run `itqan browse` now to pick assets to add?", default=True).ask():
+            browse_command.callback(
+                query=None,
+                category=None,
+                manifest_path=str(m_path),
+                lockfile_path="itqan-assets.lock",
+                interactive=True,
+                as_json=False,
+                registry_url=registry_url,
+                api_key=api_key,
+            )
+            return
     click.echo("Next, run `itqan browse` to find assets and add them to it, or uncomment the examples.")
     if flutter_pubspec.is_flutter_project(m_path.parent / flutter_pubspec.PUBSPEC):
         click.echo(f"Then run `itqan install --flutter` to download them and list them in {flutter_pubspec.PUBSPEC}.")
@@ -531,7 +551,7 @@ def browse_command(
     without it, every asset is listed and you can filter by typing in the picker.
     """
     if interactive is None:
-        interactive = sys.stdin.isatty() and sys.stdout.isatty()
+        interactive = _interactive_terminal()
     if as_json:
         interactive = False
     m_path = Path(manifest_path)
