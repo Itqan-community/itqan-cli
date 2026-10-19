@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from importlib.metadata import PackageNotFoundError, version
 
 import requests
 
 from itqan_cli.exceptions import RegistryApiError
+from itqan_cli.usage import usage_headers
 
 
 @dataclass(frozen=True, slots=True)
@@ -71,13 +71,6 @@ class Account:
 DEFAULT_REGISTRY_URL = "https://api.cms.itqan.dev"
 
 
-def _cli_version() -> str:
-    try:
-        return version("itqan-cli")
-    except PackageNotFoundError:  # running from a source checkout that isn't installed
-        return "unknown"
-
-
 def _error_detail(response: requests.Response) -> str:
     """`: <reason>` from an error body like a 400 validation error, or ""."""
     try:
@@ -119,7 +112,7 @@ class RegistryClient:
         headers = {
             "Accept": "application/json",
             "Content-Type": "application/json",
-            "User-Agent": f"itqan-cli/{_cli_version()}",
+            **usage_headers(),
         }
         if self.api_key:
             headers["X-API-Key"] = self.api_key
