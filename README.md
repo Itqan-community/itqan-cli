@@ -416,12 +416,16 @@ Add `--help` to any command for all its options. `install` and `browse` read the
 | `--api-key` | `ITQAN_API_KEY` | The key saved by `itqan login`, if any. |
 | `--registry-url` | `ITQAN_REGISTRY_URL` | `https://api.cms.itqan.dev`, the public registry. |
 | | `ITQAN_NO_UPDATE_NOTICE` | Set to `1` to stop `itqan install` saying that newer versions exist. |
-| | `ITQAN_CONFIG_DIR` | Where `itqan login` saves keys: `~/.config/itqan` (`%APPDATA%\itqan` on Windows). |
+| | `DO_NOT_TRACK`, `ITQAN_NO_TELEMETRY` | Set to `1` to send no install ID or command name with requests (see below). |
+| | `ITQAN_CONFIG_DIR` | Where `itqan login` saves keys and the install ID: `~/.config/itqan` (`%APPDATA%\itqan` on Windows). |
 | | `ITQAN_CACHE_DIR` | Dart package only. Where the downloaded program is kept: `~/Library/Caches/itqan` (macOS), `~/.cache/itqan` (Linux), `%LOCALAPPDATA%\itqan` (Windows). |
 | | `ITQAN_CLI_DOWNLOAD_URL` | Dart package only. A folder (`https://` or `file://`) with a release's programs and `SHA256SUMS`, such as a mirror, used instead of the GitHub Release. |
 
 A key passed with `--api-key` or `ITQAN_API_KEY` is used instead of the saved one. The saved key
 file is readable only by you.
+
+**Usage counts.** Every request sends the CLI version (`User-Agent`), a random install ID kept in the config folder's `install-id` file, and the running command's name, so Itqan can count installs; nothing else about you or your project is sent.
+Set `DO_NOT_TRACK=1` or `ITQAN_NO_TELEMETRY=1` to send only the version: no install ID or command, and no `install-id` file is created.
 
 ## Troubleshooting
 
