@@ -1,3 +1,12 @@
+## Unreleased
+
+### Feat
+
+- every request, including asset downloads, sends `User-Agent: itqan-cli/<version>`, a random
+  install ID (`X-Itqan-Install-Id`, kept in `<config dir>/install-id`) and the command's name
+  (`X-Itqan-Command`), so the registry can count CLI installs and usage. `DO_NOT_TRACK=1` or
+  `ITQAN_NO_TELEMETRY=1` leaves out the ID and command and creates no `install-id` file.
+
 ## v0.4.0 (2026-10-18)
 
 ### Feat
