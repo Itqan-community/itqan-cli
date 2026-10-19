@@ -5,10 +5,14 @@ import os
 from pathlib import Path
 import uuid
 
+from click.testing import CliRunner
 import pytest
+import responses
 
 from itqan_cli import usage
 from itqan_cli.credentials import config_dir
+from itqan_cli.lockfile import AssetLockfile, LockfileEntry, serialize_lockfile
+from itqan_cli.main import cli
 
 USER_AGENT = f"itqan-cli/{version('itqan-cli')}"
 
@@ -158,3 +162,126 @@ def test_install_id_file_should_not_be_world_writable():
 
     if os.name == "posix":
         assert _id_file().stat().st_mode & 0o022 == 0
+
+
+# --- The headers on the requests commands make ---
+
+REGISTRY = "https://api.itqan.dev/api"
+DOWNLOAD = "https://cdn.itqan.dev/assets/tafsir.csv"
+
+
+def _project(tmp_path: Path, *, locked: bool) -> Path:
+    (tmp_path / "itqan-assets.yaml").write_text('schema_version: 1\n\nassets:\n  hafs-tafsir:\n    version: "^1.0.0"\n')
+    if locked:
+        lockfile = AssetLockfile(
+            lockfile_version=1,
+            manifest_schema_version=1,
+            assets={"hafs-tafsir": LockfileEntry(slug="hafs-tafsir", constraint="^1.0.0", version="1.0.0")},
+        )
+        (tmp_path / "itqan-assets.lock").write_bytes(serialize_lockfile(lockfile))
+    return tmp_path
+
+
+def _mock_registry() -> None:
+    result = {
+        "slug": "hafs-tafsir",
+        "asset_version_id": 7,
+        "resolved_version": "1.0.0",
+        "asset_name": "Hafs Tafsir",
+        "download_url": DOWNLOAD,
+    }
+    responses.add(responses.POST, f"{REGISTRY}/packages/resolve/manifest/", json={"results": [result]})
+    responses.add(responses.GET, DOWNLOAD, body=b"surah,ayah,text\n")
+
+
+def _run(project: Path, command: str):
+    return CliRunner().invoke(
+        cli,
+        [
+            command,
+            "-m",
+            str(project / "itqan-assets.yaml"),
+            "-l",
+            str(project / "itqan-assets.lock"),
+            "--registry-url",
+            REGISTRY,
+        ],
+    )
+
+
+@responses.activate
+@pytest.mark.parametrize(("command", "sent"), [("install", "install"), ("sync", "install")])
+def test_install_command_should_send_usage_headers_on_api_calls_and_downloads(tmp_path: Path, command: str, sent: str):
+    # Arrange
+    project = _project(tmp_path, locked=False)
+    _mock_registry()
+
+    # Act
+    result = _run(project, command)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    install = usage.install_id()
+    assert [call.request.url for call in responses.calls] == [f"{REGISTRY}/packages/resolve/manifest/", DOWNLOAD]
+    for call in responses.calls:
+        assert call.request.headers["User-Agent"] == USER_AGENT
+        assert call.request.headers["X-Itqan-Install-Id"] == install
+        assert call.request.headers["X-Itqan-Command"] == sent
+
+
+@responses.activate
+def test_outdated_command_should_send_outdated_as_command(tmp_path: Path):
+    # Arrange
+    project = _project(tmp_path, locked=True)
+    _mock_registry()
+
+    # Act
+    result = _run(project, "outdated")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert len(responses.calls) == 1
+    headers = responses.calls[0].request.headers
+    assert headers["X-Itqan-Command"] == "outdated"
+    assert headers["X-Itqan-Install-Id"] == usage.install_id()
+
+
+@responses.activate
+@pytest.mark.parametrize("var", ["DO_NOT_TRACK", "ITQAN_NO_TELEMETRY"])
+def test_install_command_where_opted_out_should_send_only_user_agent(monkeypatch, tmp_path: Path, var: str):
+    # Arrange
+    monkeypatch.setenv(var, "1")
+    project = _project(tmp_path, locked=False)
+    _mock_registry()
+
+    # Act
+    result = _run(project, "install")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert len(responses.calls) == 2
+    for call in responses.calls:
+        assert call.request.headers["User-Agent"] == USER_AGENT
+        assert "X-Itqan-Install-Id" not in call.request.headers
+        assert "X-Itqan-Command" not in call.request.headers
+    assert not _id_file().exists()
+
+
+@responses.activate
+def test_install_command_where_install_id_cannot_be_stored_should_still_install(monkeypatch, tmp_path: Path):
+    # Arrange
+    blocker = tmp_path / "blocker"
+    blocker.write_text("x", encoding="utf-8")
+    monkeypatch.setenv("ITQAN_CONFIG_DIR", str(blocker / "itqan"))
+    project = _project(tmp_path, locked=False)
+    _mock_registry()
+
+    # Act
+    result = _run(project, "install")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert len(responses.calls) == 2
+    for call in responses.calls:
+        assert "X-Itqan-Install-Id" not in call.request.headers
+        assert call.request.headers["X-Itqan-Command"] == "install"

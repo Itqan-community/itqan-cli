@@ -13,6 +13,7 @@ import requests
 
 from itqan_cli.client import ResolvedAssetPayload
 from itqan_cli.exceptions import DownloadError
+from itqan_cli.usage import usage_headers
 
 # Version markers live in <assets_dir>/.itqan/<entry name>, outside the asset folders, so
 # bundlers that ship a whole folder (Flutter) don't ship them. The folder name is reserved.
@@ -200,7 +201,9 @@ class AssetDownloader:
 
         try:
             with open(temp_fd, "wb") as f_out:
-                with self.session.get(asset.download_url, stream=True, timeout=self.timeout) as resp:
+                with self.session.get(
+                    asset.download_url, stream=True, timeout=self.timeout, headers=usage_headers()
+                ) as resp:
                     if resp.status_code != 200:
                         raise DownloadError(
                             f"Failed to download '{asset.slug}' from {asset.download_url}: HTTP {resp.status_code}"
