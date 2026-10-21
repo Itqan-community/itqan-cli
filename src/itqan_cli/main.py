@@ -8,6 +8,7 @@ import json
 import os
 from pathlib import Path
 import sys
+import tempfile
 
 import click
 
@@ -15,7 +16,7 @@ from itqan_cli import add, browse, credentials, flutter as flutter_pubspec, prog
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.columns_comment import refresh_blocks
 from itqan_cli.downloader import AssetDownloader
-from itqan_cli.exceptions import ItqanCliError, RegistryApiError
+from itqan_cli.exceptions import ItqanCliError, ManifestError, RegistryApiError
 from itqan_cli.init_template import pick_samples, render_fallback, render_from_catalog, render_header
 from itqan_cli.lockfile import (
     AssetLockfile,
@@ -167,12 +168,10 @@ def _run_install(
                 pass
             raise
 
-    # The manifest's `# itqan:columns` notes follow what was actually installed.
-    manifest_text = m_path.read_text(encoding="utf-8")
-    refreshed = refresh_blocks(manifest_text, resolved_payloads)
-    if refreshed != manifest_text:
-        m_path.write_text(refreshed, encoding="utf-8")
-        click.echo(f"Updated column notes in {m_path.name}")
+    # The manifest's `# itqan:columns` notes follow what was actually installed. Only
+    # those lines change: the file keeps its line endings, and a failure here only warns
+    # (the assets and the lockfile are already in place).
+    _refresh_column_notes(m_path, resolved_payloads)
 
     if flutter:
         folders = flutter_pubspec.asset_folders(pubspec.parent, [a_dir / res.slug for res in download_summary])
@@ -186,6 +185,29 @@ def _run_install(
         click.echo(f"{m_path.name} has no assets yet: run `itqan browse` to add some, or uncomment its examples.")
     _notify_updates(resolved_payloads, manifest)
     return 0
+
+
+def _refresh_column_notes(m_path: Path, payloads: list[ResolvedAssetPayload]) -> None:
+    """Rewrite the manifest's column notes to match ``payloads``, atomically."""
+    raw = m_path.read_bytes()
+    newline = "\r\n" if b"\r\n" in raw else "\n"
+    text = raw.decode("utf-8").replace("\r\n", "\n")
+    try:
+        refreshed = refresh_blocks(text, payloads)
+    except ManifestError as exc:
+        click.echo(f"Warning: Could not update column notes in {m_path.name}: {exc.message}", err=True)
+        return
+    if refreshed == text:
+        return
+    tmp_fd, tmp_name = tempfile.mkstemp(prefix=".itqan_assets_manifest_", suffix=".tmp", dir=m_path.parent)
+    try:
+        with open(tmp_fd, "wb") as f:
+            f.write(refreshed.replace("\n", newline).encode("utf-8"))
+        os.replace(tmp_name, m_path)
+    except Exception:
+        Path(tmp_name).unlink(missing_ok=True)
+        raise
+    click.echo(f"Updated column notes in {m_path.name}")
 
 
 def _locked_requests(manifest: AssetManifest, lockfile: AssetLockfile) -> dict[str, dict[str, str]]:

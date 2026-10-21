@@ -107,3 +107,19 @@ def test_replace_block_where_other_entry_has_a_block_should_not_touch_it():
 def test_replace_block_where_result_is_not_a_valid_manifest_should_raise():
     with pytest.raises(ManifestError):
         replace_block(MANIFEST, "qa", ["  not: [a valid comment"])
+
+
+def test_render_block_where_label_has_newlines_should_collapse_it_to_one_line():
+    structure = PackageStructure(
+        "ayah",
+        ("surah", "ayah", "question", "answer"),
+        (PackageColumn("question", 'Q\n  evil:\n    version: "1.0.0"'), PackageColumn("answer", "A\r\nB")),
+    )
+
+    lines = render_block(structure, "  ")
+
+    assert lines[1:] == [
+        '  # itqan:columns   question: Q evil: version: "1.0.0"',
+        "  # itqan:columns   answer: A B",
+    ]
+    assert all("\n" not in line and "\r" not in line for line in lines)
