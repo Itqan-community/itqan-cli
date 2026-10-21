@@ -257,3 +257,73 @@ def test_set_entry_version_where_entry_has_other_fields_should_only_change_versi
 def test_set_entry_version_where_entry_missing_should_raise():
     with pytest.raises(ManifestError):
         set_entry_version('schema_version: 1\nassets:\n  "b":\n    version: "^1.0.0"\n', "a", "^2.0.0")
+
+
+QA = {
+    "slug": "ayah-qa",
+    "name": "Ayah Q&A",
+    "category": "tafsir",
+    "is_open_access": True,
+    "access": "open",
+    "languages": [
+        {
+            "language": "ar",
+            "is_source": True,
+            "latest_version": "1.2.0",
+            "structure": {
+                "template": "ayah",
+                "header": ["surah", "ayah", "question", "answer"],
+                "columns": [
+                    {"key": "question", "label_en": "Question", "label_ar": "السؤال"},
+                    {"key": "answer", "label_en": "Answer", "label_ar": "الجواب"},
+                ],
+            },
+        }
+    ],
+}
+
+
+@responses.activate
+def test_add_command_where_asset_has_two_columns_should_write_columns_block_above_entry(tmp_path: Path):
+    # Arrange
+    _mock_catalog(QA, search="ayah-qa")
+
+    # Act
+    result = _add(tmp_path, "ayah-qa", "--no-install")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    content = (tmp_path / "itqan-assets.yaml").read_text(encoding="utf-8")
+    assert (
+        "  # itqan:columns CSV, one row per ayah: surah, ayah, question, answer\n"
+        "  # itqan:columns   question: Question / السؤال\n"
+        "  # itqan:columns   answer: Answer / الجواب\n"
+        '  "ayah-qa":\n'
+    ) in content
+    assert _manifest(tmp_path).assets["ayah-qa"].version == "^1.2.0"
+
+
+@responses.activate
+def test_add_command_where_asset_has_one_column_should_write_no_columns_block(tmp_path: Path):
+    # Arrange
+    single = {
+        **QA,
+        "languages": [
+            {
+                **QA["languages"][0],
+                "structure": {
+                    "template": "ayah",
+                    "header": ["surah", "ayah", "text"],
+                    "columns": [{"key": "text", "label_en": "", "label_ar": ""}],
+                },
+            }
+        ],
+    }
+    _mock_catalog(single, search="ayah-qa")
+
+    # Act
+    result = _add(tmp_path, "ayah-qa", "--no-install")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "itqan:columns" not in (tmp_path / "itqan-assets.yaml").read_text(encoding="utf-8")

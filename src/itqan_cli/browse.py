@@ -12,6 +12,7 @@ import shutil
 from typing import TYPE_CHECKING, Any
 
 from itqan_cli.client import CatalogLanguage, CatalogPackage
+from itqan_cli.columns_comment import render_block
 from itqan_cli.exceptions import ManifestError
 from itqan_cli.init_template import entry_lines
 from itqan_cli.manifest import AssetManifest, parse_manifest_content
@@ -33,9 +34,13 @@ class NewEntry:
     constraint: str | None = None  # None: ^ the language's latest version
 
     def lines(self, indent: str) -> list[str]:
+        # A multi-column asset gets its `# itqan:columns` notes right above the entry.
+        notes = render_block(self.language.structure, indent) if self.language.structure is not None else []
         if self.language.is_source:
-            return entry_lines(self.name, self.language.latest_version, indent=indent, constraint=self.constraint)
-        return entry_lines(
+            return notes + entry_lines(
+                self.name, self.language.latest_version, indent=indent, constraint=self.constraint
+            )
+        return notes + entry_lines(
             self.name,
             self.language.latest_version,
             asset=self.package.slug,
