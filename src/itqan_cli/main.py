@@ -13,6 +13,7 @@ import click
 
 from itqan_cli import add, browse, credentials, flutter as flutter_pubspec, progress, updates
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
+from itqan_cli.columns_comment import refresh_blocks
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, RegistryApiError
 from itqan_cli.init_template import pick_samples, render_fallback, render_from_catalog, render_header
@@ -165,6 +166,13 @@ def _run_install(
             except OSError:
                 pass
             raise
+
+    # The manifest's `# itqan:columns` notes follow what was actually installed.
+    manifest_text = m_path.read_text(encoding="utf-8")
+    refreshed = refresh_blocks(manifest_text, resolved_payloads)
+    if refreshed != manifest_text:
+        m_path.write_text(refreshed, encoding="utf-8")
+        click.echo(f"Updated column notes in {m_path.name}")
 
     if flutter:
         folders = flutter_pubspec.asset_folders(pubspec.parent, [a_dir / res.slug for res in download_summary])
