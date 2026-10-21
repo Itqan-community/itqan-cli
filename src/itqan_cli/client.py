@@ -6,6 +6,7 @@ from dataclasses import dataclass
 
 import requests
 
+from itqan_cli.columns_comment import PackageColumn, PackageStructure
 from itqan_cli.exceptions import RegistryApiError
 from itqan_cli.usage import usage_headers
 
@@ -29,6 +30,9 @@ class ResolvedAssetPayload:
     # manifest's range allows. None from a registry too old to report them.
     latest_version: str | None = None
     latest_in_range: str | None = None
+    # Translations / tafsirs: the resolved version's CSV layout. None from other
+    # categories and from registries that predate it.
+    structure: PackageStructure | None = None
 
     @property
     def entry_name(self) -> str:
@@ -41,6 +45,8 @@ class CatalogLanguage:
     language: str
     is_source: bool
     latest_version: str
+    # The latest version's CSV layout (translations / tafsirs); None when unknown.
+    structure: PackageStructure | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -65,6 +71,31 @@ class Account:
 
     name: str
     email: str
+
+
+def parse_structure(raw: object) -> PackageStructure | None:
+    """A registry ``structure`` object, or None when it is absent / null.
+
+    Raises:
+        TypeError or KeyError on a malformed object, which callers report as a
+        RegistryApiError like any other unreadable field.
+    """
+    if raw is None:
+        return None
+    if not isinstance(raw, dict) or not isinstance(raw["template"], str):
+        raise TypeError(f"malformed structure: {raw!r}")
+    return PackageStructure(
+        template=raw["template"],
+        header=tuple(str(name) for name in raw["header"]),
+        columns=tuple(
+            PackageColumn(
+                key=str(column["key"]),
+                label_en=str(column.get("label_en") or ""),
+                label_ar=str(column.get("label_ar") or ""),
+            )
+            for column in raw["columns"]
+        ),
+    )
 
 
 # The public API (not the cms.itqan.dev website, which serves the web app).
@@ -206,6 +237,7 @@ class RegistryClient:
                             language=lang["language"],
                             is_source=lang["is_source"],
                             latest_version=lang["latest_version"],
+                            structure=parse_structure(lang.get("structure")),
                         )
                         for lang in item["languages"]
                     ),
@@ -300,6 +332,7 @@ class RegistryClient:
                         withdrawal_reason=item.get("withdrawal_reason"),
                         latest_version=item.get("latest_version"),
                         latest_in_range=item.get("latest_in_range"),
+                        structure=parse_structure(item.get("structure")),
                     )
                     for item in results_raw
                 ]

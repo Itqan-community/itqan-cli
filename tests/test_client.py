@@ -207,3 +207,102 @@ def test_resolve_manifest_where_version_removed_should_raise_registry_api_error_
     assert exc_info.value.error_name == "version_removed"
     assert "Licence revoked." in exc_info.value.message
     assert "itqan install --force" in exc_info.value.message
+
+
+QA_STRUCTURE = {
+    "template": "ayah",
+    "header": ["surah", "ayah", "question", "answer"],
+    "columns": [
+        {"key": "question", "label_en": "Question", "label_ar": "السؤال"},
+        {"key": "answer", "label_en": "Answer", "label_ar": "الجواب"},
+    ],
+}
+
+
+@responses.activate
+def test_list_packages_where_language_has_structure_should_parse_it():
+    from itqan_cli.columns_comment import PackageColumn, PackageStructure
+
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.GET,
+        f"{base_url}/packages/",
+        json={
+            "results": [
+                {
+                    "slug": "qa",
+                    "name": "QA",
+                    "category": "tafsir",
+                    "is_open_access": True,
+                    "languages": [
+                        {"language": "ar", "is_source": True, "latest_version": "1.0.0", "structure": QA_STRUCTURE},
+                        {"language": "en", "is_source": False, "latest_version": "1.0.0"},
+                    ],
+                }
+            ],
+            "count": 1,
+        },
+        status=200,
+    )
+
+    packages = RegistryClient(base_url=base_url).list_packages()
+
+    assert packages[0].languages[0].structure == PackageStructure(
+        template="ayah",
+        header=("surah", "ayah", "question", "answer"),
+        columns=(PackageColumn("question", "Question", "السؤال"), PackageColumn("answer", "Answer", "الجواب")),
+    )
+    assert packages[0].languages[1].structure is None
+
+
+@responses.activate
+def test_resolve_manifest_where_result_has_structure_should_parse_it():
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.POST,
+        f"{base_url}/packages/resolve/manifest/",
+        json={
+            "results": [
+                {
+                    "slug": "qa",
+                    "asset_version_id": 1,
+                    "resolved_version": "1.0.0",
+                    "asset_name": "QA",
+                    "download_url": "https://cdn.itqan.dev/qa.csv",
+                    "structure": QA_STRUCTURE,
+                }
+            ]
+        },
+        status=200,
+    )
+
+    results = RegistryClient(base_url=base_url).resolve_manifest({"qa": "^1.0.0"})
+
+    assert results[0].structure.header == ("surah", "ayah", "question", "answer")
+
+
+@responses.activate
+def test_list_packages_where_structure_is_malformed_should_raise_registry_api_error():
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.GET,
+        f"{base_url}/packages/",
+        json={
+            "results": [
+                {
+                    "slug": "qa",
+                    "name": "QA",
+                    "category": "tafsir",
+                    "is_open_access": True,
+                    "languages": [
+                        {"language": "ar", "is_source": True, "latest_version": "1.0.0", "structure": {"template": 1}}
+                    ],
+                }
+            ],
+            "count": 1,
+        },
+        status=200,
+    )
+
+    with pytest.raises(RegistryApiError):
+        RegistryClient(base_url=base_url).list_packages()
