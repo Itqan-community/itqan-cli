@@ -270,6 +270,23 @@ Each language of an asset has its own version history. That's why `tafsir-jalala
 2.x while its English translation is on 1.3.x. Leave out `language` to get the asset's original
 language.
 
+Some translations and tafsirs have several text columns, such as a question and an answer for
+each ayah. For those, `itqan add` writes a note above the entry saying what the downloaded CSV
+holds:
+
+```yaml
+assets:
+  # itqan:columns CSV, one row per ayah: surah, ayah, question, answer
+  # itqan:columns   question: Question / السؤال
+  # itqan:columns   answer: Answer / الجواب
+  ayah-qa:
+    version: "^1.2.0"
+```
+
+`itqan install` keeps the note in line with the version it installs, for example when a newer
+version adds a column. It only ever changes lines starting with `# itqan:columns`, and keeps your
+own comments and the file's line endings. Assets with a single text column get no note.
+
 The full format, including every rule and error, is specified in
 [ASSET_MANIFEST.md](https://github.com/Itqan-community/cms-backend/blob/main/docs/ASSET_MANIFEST.md).
 

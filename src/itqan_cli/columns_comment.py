@@ -37,15 +37,22 @@ class PackageStructure:
     columns: tuple[PackageColumn, ...]
 
 
+def _one_line(value: str) -> str:
+    """``value`` with every run of whitespace (newlines included) as one space: a
+    publisher-typed label must never become a line of YAML of its own."""
+    return " ".join(value.split())
+
+
 def render_block(structure: PackageStructure, indent: str) -> list[str]:
     """The block's lines at ``indent``; none for a single-column asset."""
     if len(structure.columns) <= 1:
         return []
-    lines = [f"{indent}{MARKER} CSV, one row per {structure.template}: {', '.join(structure.header)}"]
+    header = ", ".join(_one_line(name) for name in structure.header)
+    lines = [f"{indent}{MARKER} CSV, one row per {_one_line(structure.template)}: {header}"]
     for column in structure.columns:
-        labels = " / ".join(label for label in (column.label_en, column.label_ar) if label)
+        labels = " / ".join(_one_line(label) for label in (column.label_en, column.label_ar) if _one_line(label))
         if labels:
-            lines.append(f"{indent}{MARKER}   {column.key}: {labels}")
+            lines.append(f"{indent}{MARKER}   {_one_line(column.key)}: {labels}")
     return lines
 
 

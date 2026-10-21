@@ -349,3 +349,37 @@ def test_install_command_where_block_already_current_should_not_rewrite_manifest
     assert result.exit_code == 0, result.output
     assert manifest.read_bytes() == current
     assert manifest.stat().st_mtime_ns == before
+
+
+@responses.activate
+def test_install_command_where_manifest_uses_crlf_should_keep_crlf_when_refreshing(runner: CliRunner, tmp_path: Path):
+    registry_url = "https://api.itqan.dev/api"
+    (tmp_path / "itqan-assets.yaml").write_bytes(QA_MANIFEST.replace(b"\n", b"\r\n"))
+    _mock_qa_resolve(registry_url, structure=QA_STRUCTURE)
+
+    result = _install(runner, tmp_path, registry_url)
+
+    assert result.exit_code == 0, result.output
+    raw = (tmp_path / "itqan-assets.yaml").read_bytes()
+    assert b"itqan:columns CSV, one row per ayah: surah, ayah, question, answer, extra\r\n" in raw
+    assert raw.count(b"\n") == raw.count(b"\r\n")
+
+
+@responses.activate
+def test_install_command_where_refresh_fails_should_warn_and_still_succeed(runner: CliRunner, tmp_path: Path):
+    from unittest.mock import patch
+
+    from itqan_cli import main as main_module
+    from itqan_cli.columns_comment import refresh_blocks
+    from itqan_cli.exceptions import ManifestError
+
+    registry_url = "https://api.itqan.dev/api"
+    (tmp_path / "itqan-assets.yaml").write_bytes(QA_MANIFEST)
+    _mock_qa_resolve(registry_url, structure=QA_STRUCTURE)
+
+    with patch.object(main_module, refresh_blocks.__name__, side_effect=ManifestError("bad")):
+        result = _install(runner, tmp_path, registry_url)
+
+    assert result.exit_code == 0, result.output
+    assert "Could not update column notes" in result.output
+    assert (tmp_path / "itqan-assets.yaml").read_bytes() == QA_MANIFEST
