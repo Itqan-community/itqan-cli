@@ -63,6 +63,15 @@ def _find_entry(lines: list[str], name: str) -> int | None:
     return next((i for i in range(start + 1, len(lines)) if key.match(lines[i])), None)
 
 
+def entry_indent(content: str, name: str) -> str | None:
+    """The indentation of entry ``name``'s key line, or None when it isn't a block entry."""
+    lines = content.split("\n")
+    index = _find_entry(lines, name)
+    if index is None:
+        return None
+    return _entry_key(name).match(lines[index]).group("indent")
+
+
 def replace_block(content: str, name: str, block: list[str]) -> str:
     """``content`` with the marker lines directly above entry ``name`` replaced by
     ``block`` (``[]`` removes them). Every other line is kept as it is; a flow-style
@@ -86,3 +95,19 @@ def replace_block(content: str, name: str, block: list[str]) -> str:
     except ManifestError as exc:
         raise ManifestError(f"Could not update the column notes of {name!r}: {exc}") from exc
     return updated
+
+
+def refresh_blocks(content: str, payloads: list) -> str:
+    """``content`` with each resolved entry's block matching its resolved version.
+
+    Entries whose registry reported no ``structure`` (older registries, other
+    categories) are left exactly as they are.
+    """
+    for payload in payloads:
+        if payload.structure is None:
+            continue
+        indent = entry_indent(content, payload.entry_name)
+        if indent is None:
+            continue
+        content = replace_block(content, payload.entry_name, render_block(payload.structure, indent))
+    return content
