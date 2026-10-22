@@ -327,3 +327,30 @@ def test_add_command_where_asset_has_one_column_should_write_no_columns_block(tm
     # Assert
     assert result.exit_code == 0, result.output
     assert "itqan:columns" not in (tmp_path / "itqan-assets.yaml").read_text(encoding="utf-8")
+
+
+@responses.activate
+def test_add_command_where_range_excludes_latest_should_leave_notes_to_install(tmp_path: Path):
+    # Arrange — the catalog describes 1.2.0, which ~1.0 does not accept
+    _mock_catalog(QA, search="ayah-qa")
+
+    # Act
+    result = _add(tmp_path, "ayah-qa@~1.0", "--no-install")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "itqan:columns" not in (tmp_path / "itqan-assets.yaml").read_text(encoding="utf-8")
+    assert _manifest(tmp_path).assets["ayah-qa"].version == "~1.0"
+
+
+@responses.activate
+def test_add_command_where_range_accepts_latest_should_write_notes(tmp_path: Path):
+    # Arrange
+    _mock_catalog(QA, search="ayah-qa")
+
+    # Act
+    result = _add(tmp_path, "ayah-qa@^1.1", "--no-install")
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "# itqan:columns CSV" in (tmp_path / "itqan-assets.yaml").read_text(encoding="utf-8")
