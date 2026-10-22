@@ -14,11 +14,9 @@ from dataclasses import dataclass
 import re
 
 from itqan_cli.exceptions import ManifestError
-from itqan_cli.manifest import parse_manifest_content
+from itqan_cli.manifest import ASSETS_KEY_LINE, parse_manifest_content
 
 MARKER = "# itqan:columns"
-
-_ASSETS_KEY = re.compile(r"^assets[ \t]*:[ \t]*(#.*)?$")
 
 
 @dataclass(frozen=True, slots=True)
@@ -63,7 +61,7 @@ def _entry_key(name: str) -> re.Pattern[str]:
 
 
 def _find_entry(lines: list[str], name: str) -> int | None:
-    start = next((i for i, line in enumerate(lines) if _ASSETS_KEY.match(line)), None)
+    start = next((i for i, line in enumerate(lines) if ASSETS_KEY_LINE.match(line)), None)
     if start is None:
         return None
     key = _entry_key(name)

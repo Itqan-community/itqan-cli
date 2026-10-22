@@ -15,7 +15,7 @@ from itqan_cli.client import CatalogLanguage, CatalogPackage
 from itqan_cli.columns_comment import render_block
 from itqan_cli.exceptions import ManifestError
 from itqan_cli.init_template import entry_lines
-from itqan_cli.manifest import AssetManifest, parse_manifest_content
+from itqan_cli.manifest import ASSETS_KEY_LINE, AssetManifest, parse_manifest_content
 
 if TYPE_CHECKING:
     from questionary import Question
@@ -91,7 +91,6 @@ def plan_entries(
     return entries, warnings
 
 
-_ASSETS_KEY = re.compile(r"^assets[ \t]*:[ \t]*(#.*)?$")
 _ENTRY_INDENT = re.compile(r"^([ \t]+)[^ \t#]")
 
 
@@ -106,7 +105,7 @@ def add_entries(content: str, entries: list[NewEntry]) -> str:
             result would not be a valid manifest.
     """
     lines = content.splitlines()
-    start = next((i for i, line in enumerate(lines) if _ASSETS_KEY.match(line)), None)
+    start = next((i for i, line in enumerate(lines) if ASSETS_KEY_LINE.match(line)), None)
     if start is None:
         raise ManifestError("Could not find a block-style `assets:` key to add entries under.")
 

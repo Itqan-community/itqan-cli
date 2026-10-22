@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path, PurePosixPath, PureWindowsPath
+import re
 from typing import Any
 
 import yaml
@@ -25,6 +26,10 @@ from itqan_cli.exceptions import (
     YamlProfileViolationError,
 )
 from itqan_cli.semver import parse_constraint
+
+# The manifest's top-level `assets:` line. A top-level YAML key always starts at
+# column 0, so an indented `assets:` belongs to something else and is not matched.
+ASSETS_KEY_LINE = re.compile(r"^assets[ \t]*:[ \t]*(#.*)?$")
 
 
 @dataclass(frozen=True, slots=True)
