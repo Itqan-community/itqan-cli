@@ -285,7 +285,9 @@ assets:
 
 `itqan install` keeps the note in line with the version it installs, for example when a newer
 version adds a column. It only ever changes lines starting with `# itqan:columns`, and keeps your
-own comments and the file's line endings. Assets with a single text column get no note.
+own comments and the file's line endings. Assets with a single text column get no note, and
+`itqan add name@range --no-install` leaves it to `itqan install` when the range doesn't accept the
+newest version (the note would describe a version the entry won't install).
 
 The full format, including every rule and error, is specified in
 [ASSET_MANIFEST.md](https://github.com/Itqan-community/cms-backend/blob/main/docs/ASSET_MANIFEST.md).

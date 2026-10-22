@@ -16,6 +16,7 @@ from itqan_cli.columns_comment import render_block
 from itqan_cli.exceptions import ManifestError
 from itqan_cli.init_template import entry_lines
 from itqan_cli.manifest import ASSETS_KEY_LINE, AssetManifest, parse_manifest_content
+from itqan_cli.semver import matches_constraint, parse_constraint, parse_semver
 
 if TYPE_CHECKING:
     from questionary import Question
@@ -35,7 +36,7 @@ class NewEntry:
 
     def lines(self, indent: str) -> list[str]:
         # A multi-column asset gets its `# itqan:columns` notes right above the entry.
-        notes = render_block(self.language.structure, indent) if self.language.structure is not None else []
+        notes = render_block(self.language.structure, indent) if self._describes_accepted_version() else []
         if self.language.is_source:
             return notes + entry_lines(
                 self.name, self.language.latest_version, indent=indent, constraint=self.constraint
@@ -48,6 +49,20 @@ class NewEntry:
             indent=indent,
             constraint=self.constraint,
         )
+
+    def _describes_accepted_version(self) -> bool:
+        """Whether the catalog's structure (its latest version's) fits this entry: with a
+        range that rejects the latest version, `itqan install` writes the notes instead,
+        for the version it resolves."""
+        if self.language.structure is None:
+            return False
+        if self.constraint is None:
+            return True
+        latest = parse_semver(self.language.latest_version)
+        try:
+            return latest is not None and matches_constraint(latest, parse_constraint(self.constraint))
+        except ValueError:
+            return False
 
 
 def manifest_targets(manifest: AssetManifest | None) -> set[Target]:
