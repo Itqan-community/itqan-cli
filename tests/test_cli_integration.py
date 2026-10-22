@@ -366,6 +366,58 @@ def test_install_command_where_manifest_uses_crlf_should_keep_crlf_when_refreshi
 
 
 @responses.activate
+def test_install_command_where_entry_name_differs_from_slug_should_refresh_that_entry(
+    runner: CliRunner, tmp_path: Path
+):
+    registry_url = "https://api.itqan.dev/api"
+    (tmp_path / "itqan-assets.yaml").write_bytes(
+        b'schema_version: 1\n\nassets:\n  qa-en:\n    version: "^1.0.0"\n    asset: qa\n    language: en\n'
+    )
+    result = {
+        "slug": "qa",
+        "name": "qa-en",
+        "asset_version_id": 7,
+        "resolved_version": "1.1.0",
+        "asset_name": "QA",
+        "download_url": "https://cdn.itqan.dev/qa.csv",
+        "structure": QA_STRUCTURE,
+    }
+    responses.add(responses.POST, f"{registry_url}/packages/resolve/manifest/", json={"results": [result]}, status=200)
+    responses.add(responses.GET, "https://cdn.itqan.dev/qa.csv", body=b"surah,ayah,question\n", status=200)
+
+    outcome = _install(runner, tmp_path, registry_url)
+
+    assert outcome.exit_code == 0, outcome.output
+    assert (
+        (tmp_path / "itqan-assets.yaml")
+        .read_text(encoding="utf-8")
+        .startswith(
+            "schema_version: 1\n\nassets:\n"
+            "  # itqan:columns CSV, one row per ayah: surah, ayah, question, answer, extra\n"
+            "  # itqan:columns   question: Question\n"
+            "  qa-en:\n"
+        )
+    )
+
+
+@responses.activate
+def test_install_command_where_lockfile_fresh_should_still_refresh_columns_block(runner: CliRunner, tmp_path: Path):
+    registry_url = "https://api.itqan.dev/api"
+    manifest = tmp_path / "itqan-assets.yaml"
+    manifest.write_bytes(QA_MANIFEST)
+    _mock_qa_resolve(registry_url, structure=QA_STRUCTURE)
+    assert _install(runner, tmp_path, registry_url).exit_code == 0
+    manifest.write_bytes(QA_MANIFEST)  # stale notes again; the entries are unchanged
+    _mock_qa_resolve(registry_url, structure=QA_STRUCTURE)
+
+    result = _install(runner, tmp_path, registry_url)
+
+    assert result.exit_code == 0, result.output
+    assert "Lockfile is FRESH" in result.output
+    assert "question, answer, extra" in manifest.read_text(encoding="utf-8")
+
+
+@responses.activate
 def test_install_command_where_refresh_fails_should_warn_and_still_succeed(runner: CliRunner, tmp_path: Path):
     from unittest.mock import patch
 

@@ -123,3 +123,15 @@ def test_render_block_where_label_has_newlines_should_collapse_it_to_one_line():
         "  # itqan:columns   answer: A B",
     ]
     assert all("\n" not in line and "\r" not in line for line in lines)
+
+
+def test_replace_block_where_key_line_has_trailing_comment_should_insert_above_it():
+    content = 'schema_version: 1\nassets:\n  qa: # our Q&A data\n    version: "^1.0.0"\n'
+
+    result = replace_block(content, "qa", ["  # itqan:columns CSV, one row per ayah: surah, ayah, q, a"])
+
+    assert result == (
+        "schema_version: 1\nassets:\n"
+        "  # itqan:columns CSV, one row per ayah: surah, ayah, q, a\n"
+        '  qa: # our Q&A data\n    version: "^1.0.0"\n'
+    )
