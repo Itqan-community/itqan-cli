@@ -74,28 +74,37 @@ class Account:
 
 
 def parse_structure(raw: object) -> PackageStructure | None:
-    """A registry ``structure`` object, or None when it is absent / null.
+    """A registry ``structure`` object, or None when it is absent, null or malformed.
 
-    Raises:
-        TypeError or KeyError on a malformed object, which callers report as a
-        RegistryApiError like any other unreadable field.
+    The structure only feeds the column notes written above a manifest entry, so a
+    malformed one leaves the notes out rather than failing the whole registry call.
     """
-    if raw is None:
+    if not isinstance(raw, dict):
         return None
-    if not isinstance(raw, dict) or not isinstance(raw["template"], str):
-        raise TypeError(f"malformed structure: {raw!r}")
+    template, header, columns = raw.get("template"), raw.get("header"), raw.get("columns")
+    if not isinstance(template, str) or not isinstance(header, list) or not isinstance(columns, list):
+        return None
+    if not all(isinstance(name, str) for name in header):
+        return None
+    if not all(isinstance(column, dict) and isinstance(column.get("key"), str) for column in columns):
+        return None
     return PackageStructure(
-        template=raw["template"],
-        header=tuple(str(name) for name in raw["header"]),
+        template=template,
+        header=tuple(header),
         columns=tuple(
             PackageColumn(
-                key=str(column["key"]),
-                label_en=str(column.get("label_en") or ""),
-                label_ar=str(column.get("label_ar") or ""),
+                key=column["key"],
+                label_en=_label(column.get("label_en")),
+                label_ar=_label(column.get("label_ar")),
             )
-            for column in raw["columns"]
+            for column in columns
         ),
     )
+
+
+def _label(raw: object) -> str:
+    """A column label, or "" when it is missing or not text."""
+    return raw if isinstance(raw, str) else ""
 
 
 # The public API (not the cms.itqan.dev website, which serves the web app).
