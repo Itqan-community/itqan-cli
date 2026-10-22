@@ -281,8 +281,17 @@ def test_resolve_manifest_where_result_has_structure_should_parse_it():
     assert results[0].structure.header == ("surah", "ayah", "question", "answer")
 
 
+@pytest.mark.parametrize(
+    "structure",
+    [
+        {"template": 1},
+        {"template": "ayah", "header": ["surah", "ayah", "q"]},
+        {"template": "ayah", "header": ["surah", "ayah", "q"], "columns": [{"key": None}]},
+        "ayah",
+    ],
+)
 @responses.activate
-def test_list_packages_where_structure_is_malformed_should_raise_registry_api_error():
+def test_list_packages_where_structure_is_malformed_should_list_the_package_without_it(structure):
     base_url = "https://api.itqan.dev/api"
     responses.add(
         responses.GET,
@@ -295,7 +304,7 @@ def test_list_packages_where_structure_is_malformed_should_raise_registry_api_er
                     "category": "tafsir",
                     "is_open_access": True,
                     "languages": [
-                        {"language": "ar", "is_source": True, "latest_version": "1.0.0", "structure": {"template": 1}}
+                        {"language": "ar", "is_source": True, "latest_version": "1.0.0", "structure": structure}
                     ],
                 }
             ],
@@ -304,5 +313,7 @@ def test_list_packages_where_structure_is_malformed_should_raise_registry_api_er
         status=200,
     )
 
-    with pytest.raises(RegistryApiError):
-        RegistryClient(base_url=base_url).list_packages()
+    packages = RegistryClient(base_url=base_url).list_packages()
+
+    assert packages[0].slug == "qa"
+    assert packages[0].languages[0].structure is None
