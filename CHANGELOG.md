@@ -1,3 +1,21 @@
+## v0.6.0 (2026-10-25)
+
+### Feat
+
+- refresh column notes on install
+- describe multi-column assets in the manifest on add
+- render and replace the itqan:columns comment block
+
+### Fix
+
+- leave column notes to install when an added range excludes the newest version
+- skip a malformed column structure instead of failing the registry call
+- keep manifest line endings and one-line labels in column notes
+
+### Refactor
+
+- share the manifest's top-level assets key pattern
+
 ## v0.5.0 (2026-10-21)
 
 ### Feat
