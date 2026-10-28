@@ -32,12 +32,12 @@ def test_render_block_where_single_column_should_be_empty():
 def test_render_block_where_column_has_no_or_one_label_should_skip_or_show_it():
     structure = PackageStructure(
         "word",
-        ("word_id", "sura", "aya", "word", "gloss", "note"),
+        ("word_id", "surah", "ayah", "word", "gloss", "note"),
         (PackageColumn("gloss", "", "المعنى"), PackageColumn("note")),
     )
 
     assert render_block(structure, "  ") == [
-        "  # itqan:columns CSV, one row per word: word_id, sura, aya, word, gloss, note",
+        "  # itqan:columns CSV, one row per word: word_id, surah, ayah, word, gloss, note",
         "  # itqan:columns   gloss: المعنى",
     ]
 
