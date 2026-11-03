@@ -12,7 +12,7 @@ import tempfile
 
 import click
 
-from itqan_cli import add, browse, credentials, flutter as flutter_pubspec, progress, updates
+from itqan_cli import add, autoupdate, browse, credentials, flutter as flutter_pubspec, progress, updates
 from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
 from itqan_cli.columns_comment import refresh_blocks
 from itqan_cli.downloader import AssetDownloader
@@ -826,6 +826,110 @@ def _find_package(client: RegistryClient, slug: str) -> CatalogPackage:
     if package is None:
         raise ItqanCliError(f"No installable asset named {slug!r}. Search for it with `itqan browse {slug}`.")
     return package
+
+
+@cli.command("autoupdate", short_help="Add a GitHub Actions workflow that opens pull requests for asset updates.")
+@click.option(
+    "--manifest",
+    "-m",
+    "manifest_path",
+    default="itqan-assets.yaml",
+    show_default=True,
+    help="Path to itqan-assets.yaml manifest.",
+)
+@click.option(
+    "--lockfile",
+    "-l",
+    "lockfile_path",
+    default="itqan-assets.lock",
+    show_default=True,
+    help="Path to itqan-assets.lock lockfile.",
+)
+@click.option(
+    "--schedule",
+    default=autoupdate.DEFAULT_SCHEDULE,
+    show_default=True,
+    help="When the workflow runs, as a cron expression in UTC.",
+)
+@click.option(
+    "--flutter/--no-flutter",
+    default=None,
+    help="Run the install with --flutter so pubspec.yaml stays in step. "
+    "Default: on when a Flutter pubspec.yaml is next to the manifest.",
+)
+@click.option(
+    "--output",
+    "-o",
+    "output_path",
+    default=None,
+    help=f"Where to write the workflow. Default: .github/workflows/{autoupdate.WORKFLOW_FILE} "
+    "in the repository root.",
+)
+@click.option("--force", "-f", is_flag=True, default=False, help="Overwrite an existing workflow file.")
+def autoupdate_command(
+    manifest_path: str,
+    lockfile_path: str,
+    schedule: str,
+    flutter: bool | None,
+    output_path: str | None,
+    force: bool,
+) -> None:
+    """Add a GitHub Actions workflow that keeps your assets up to date.
+
+    On a schedule, the workflow runs `itqan install --force`, which picks the
+    newest versions your manifest allows, and opens a pull request (or updates
+    the open one) when that changes the lockfile. It runs from the current
+    folder with the --manifest and --lockfile given here.
+    """
+    cwd = Path.cwd().resolve()
+    m_path = Path(manifest_path)
+    try:
+        schedule = autoupdate.validate_schedule(schedule)
+        if not m_path.is_file():
+            raise ManifestError(f"No manifest found at {m_path}. Run `itqan init` or `itqan add` first.")
+        root = autoupdate.find_repo_root(cwd)
+        if root is None:
+            click.echo("Warning: not in a git repository; treating the current folder as its root.", err=True)
+            root = cwd
+        workdir = autoupdate.relative_to_root(cwd, root, "current folder")
+        install_args = ["--force"]
+        for flag, value, default in (
+            ("-m", manifest_path, "itqan-assets.yaml"),
+            ("-l", lockfile_path, "itqan-assets.lock"),
+        ):
+            autoupdate.relative_to_root(cwd / value, root, "file")  # the runner only has the repository
+            relative = Path(os.path.relpath((cwd / value).resolve(), cwd)).as_posix()
+            if relative != default:
+                install_args += [flag, relative]
+        if flutter is None:
+            flutter = flutter_pubspec.is_flutter_project(m_path.parent / flutter_pubspec.PUBSPEC)
+        if flutter:
+            install_args.append("--flutter")
+        out = Path(output_path) if output_path else root / ".github" / "workflows" / autoupdate.WORKFLOW_FILE
+        if out.exists() and not force:
+            raise ItqanCliError(f"{out} already exists. Use --force to overwrite it.")
+        content = autoupdate.render_workflow(
+            install_args=install_args, working_directory=str(workdir), schedule=schedule
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(content, encoding="utf-8")
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+    except OSError as exc:
+        click.echo(f"Error: Could not write the workflow: {exc}", err=True)
+        sys.exit(1)
+
+    shown = out.resolve().relative_to(root) if out.resolve().is_relative_to(root) else out
+    click.echo(f"Created {shown}.")
+    click.echo("Next:")
+    click.echo("  1. Commit it and push it to your default branch; schedules only run from there.")
+    click.echo("  2. Turn on Settings > Actions > General > Allow GitHub Actions to create and approve pull requests.")
+    click.echo("  3. If any asset needs access approval, add your key as the ITQAN_API_KEY repository secret.")
+    click.echo(
+        "Pull requests opened with the default GITHUB_TOKEN don't start your other workflows; give the "
+        "create-pull-request step a `token:` from a GitHub App or a personal access token if you want CI on them."
+    )
 
 
 # Where users create API keys in the CMS web app.
