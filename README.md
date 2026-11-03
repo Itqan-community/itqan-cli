@@ -359,7 +359,16 @@ Pass `install: true` to have the action run `itqan install` itself. The
 Dependabot and similar tools don't read `itqan-assets.yaml`. To get the same kind of pull request,
 add a workflow that runs `itqan install --force` on a schedule. It picks the newest versions your
 manifest allows, and when that changes the lockfile, it opens a pull request (or updates the open
-one):
+one). Run `itqan autoupdate` to write it to `.github/workflows/update-itqan-assets.yml`:
+
+```bash
+itqan autoupdate                          # every Monday at 06:00 UTC
+itqan autoupdate --schedule "0 3 * * *"   # or every day at 03:00 UTC
+```
+
+It runs `itqan install` from the folder you ran `itqan autoupdate` in, with the same `--manifest`
+and `--lockfile`, and adds `--flutter` in a [Flutter](#flutter) project. `--output` writes the file
+somewhere else and `--force` overwrites an existing one. The workflow it writes looks like this:
 
 ```yaml
 # .github/workflows/update-itqan-assets.yml
@@ -420,6 +429,7 @@ example, `npm ci` for a project with `itqan-cli` in its `devDependencies`, or
 | `itqan add ASSET[@RANGE]...` | Add assets to `itqan-assets.yaml` (created if missing) and install them. Without `@RANGE` an entry accepts `^` the newest version; an asset already in the manifest gets the new range. `--language` picks a language other than the source; `--no-install` only edits the manifest. |
 | `itqan install` | Download the assets and write `itqan-assets.lock`. Uses the lockfile's exact versions while it matches the manifest. `--force` picks the newest allowed versions and downloads again. `--flutter` keeps `pubspec.yaml` up to date (see [Flutter](#flutter)). `--assets-dir` overrides the manifest's folder for one run. In a terminal it shows each download's progress; `--no-progress` turns that off. |
 | `itqan sync` | Same as `itqan install`. |
+| `itqan autoupdate` | Write a GitHub Actions workflow that opens a pull request when `itqan install --force` finds newer allowed versions (see [Get a pull request when assets have new versions](#get-a-pull-request-when-assets-have-new-versions)). `--schedule` sets when it runs; `--force` overwrites an existing workflow. |
 | `itqan outdated` | List the locked assets that have newer versions: the newest your range allows and the newest overall. `--json` prints JSON. |
 | `itqan login` | Save your API key for the registry, after checking it. `--api-key` passes the key without the prompt. |
 | `itqan logout` | Remove the saved key. |
