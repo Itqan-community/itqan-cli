@@ -1,20 +1,26 @@
-## v0.6.0 (2026-10-25)
+## v0.6.0 (2026-11-03)
 
 ### Feat
 
-- refresh column notes on install
-- describe multi-column assets in the manifest on add
-- render and replace the itqan:columns comment block
+- `itqan autoupdate` writes `.github/workflows/update-itqan-assets.yml`, a GitHub Actions workflow
+  that runs `itqan install --force` on a schedule and opens a pull request (or updates the open
+  one) when that picks newer versions allowed by the manifest. It runs from the folder you ran it
+  in with the same `--manifest` and `--lockfile`, and adds `--flutter` in a Flutter project.
+  `--schedule` takes a cron expression (default every Monday at 06:00 UTC), `--output` writes the
+  file elsewhere and `--force` overwrites an existing one.
+- for translations and tafsirs with several text columns, `itqan add` writes a
+  `# itqan:columns` note above the entry saying what the downloaded CSV holds: what one row is,
+  the header, and each column's English and Arabic label. `itqan install` keeps the note in line
+  with the version it installs. Only lines starting with `# itqan:columns` are ever changed.
 
 ### Fix
 
-- leave column notes to install when an added range excludes the newest version
-- skip a malformed column structure instead of failing the registry call
-- keep manifest line endings and one-line labels in column notes
-
-### Refactor
-
-- share the manifest's top-level assets key pattern
+- the column notes keep the manifest's line endings, and a label with line breaks is written on
+  one line.
+- `itqan add name@range --no-install` no longer writes a note for the newest version when the
+  range accepts only older ones; `itqan install` adds the right one.
+- an asset whose column layout the registry sends malformed no longer fails the command; it just
+  gets no note.
 
 ## v0.5.0 (2026-10-21)
 
