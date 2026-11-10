@@ -529,6 +529,7 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
             browse_command.callback(
                 query=None,
                 category=None,
+                tag=None,
                 manifest_path=str(m_path),
                 lockfile_path="itqan-assets.lock",
                 interactive=True,
@@ -546,7 +547,8 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
 
 @cli.command("browse", short_help="Search the catalog and add assets to the manifest.")
 @click.argument("query", required=False)
-@click.option("--category", "-c", default=None, help="Only assets of this category (mushaf, tafsir, translation, ...).")
+@click.option("--category", "-c", default=None, help="Only assets of this category (mushaf, font, text, ...).")
+@click.option("--tag", "-t", default=None, help="Only text assets with this tag (tafsir, translation, ...).")
 @click.option(
     "--manifest",
     "-m",
@@ -587,6 +589,7 @@ def init_command(manifest_path: str, assets_dir: str, registry_url: str, api_key
 def browse_command(
     query: str | None,
     category: str | None,
+    tag: str | None,
     manifest_path: str,
     lockfile_path: str,
     interactive: bool | None,
@@ -596,7 +599,7 @@ def browse_command(
 ) -> None:
     """Browse installable assets and add them to itqan-assets.yaml.
 
-    QUERY searches names, slugs, descriptions and publishers on the registry;
+    QUERY searches names, slugs, descriptions, publishers and tags on the registry;
     without it, every asset is listed and you can filter by typing in the picker.
     """
     if interactive is None:
@@ -610,7 +613,7 @@ def browse_command(
         manifest = load_manifest(m_path) if m_path.exists() else None
         targets = browse.manifest_targets(manifest)
         client = RegistryClient(base_url=registry_url, api_key=api_key)
-        packages = client.list_all_packages(search=query, category=category)
+        packages = client.list_all_packages(search=query, category=category, tag=tag)
     except ItqanCliError as exc:
         click.echo(f"Error: {exc.message}", err=True)
         sys.exit(exc.exit_code)
@@ -619,7 +622,7 @@ def browse_command(
         click.echo(json.dumps(browse.to_json(packages, targets), ensure_ascii=False, indent=2))
         return
     if not packages:
-        click.echo("No assets match." if query or category else "The registry has no installable assets yet.")
+        click.echo("No assets match." if query or category or tag else "The registry has no installable assets yet.")
         return
     if not interactive:
         click.echo(browse.render_table(packages, targets))

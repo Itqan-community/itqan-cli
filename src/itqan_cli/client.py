@@ -63,6 +63,8 @@ class CatalogPackage:
     # a registry that predates it, which only says whether the asset is open.
     access: str | None = None
     access_request_url: str | None = None
+    # Text assets: what kind of text it holds (tafsir, translation, ...). Slugs only.
+    tags: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True, slots=True)
@@ -164,6 +166,7 @@ class RegistryClient:
         open_access: bool | None = None,
         search: str | None = None,
         category: str | None = None,
+        tag: str | None = None,
         page_size: int = 50,
     ) -> list[CatalogPackage]:
         """Call GET /packages/ for the first page of installable assets.
@@ -172,7 +175,7 @@ class RegistryClient:
             RegistryApiError when the registry can't be reached or answers badly.
         """
         packages, _ = self._catalog_page(
-            open_access=open_access, search=search, category=category, page=1, page_size=page_size
+            open_access=open_access, search=search, category=category, tag=tag, page=1, page_size=page_size
         )
         return packages
 
@@ -182,6 +185,7 @@ class RegistryClient:
         open_access: bool | None = None,
         search: str | None = None,
         category: str | None = None,
+        tag: str | None = None,
         page_size: int = 50,
     ) -> list[CatalogPackage]:
         """Every installable asset matching the filters, following GET /packages/ pagination.
@@ -193,7 +197,7 @@ class RegistryClient:
         page = 1
         while True:
             batch, count = self._catalog_page(
-                open_access=open_access, search=search, category=category, page=page, page_size=page_size
+                open_access=open_access, search=search, category=category, tag=tag, page=page, page_size=page_size
             )
             packages.extend(batch)
             if not batch or len(packages) >= count:
@@ -206,6 +210,7 @@ class RegistryClient:
         open_access: bool | None,
         search: str | None,
         category: str | None,
+        tag: str | None,
         page: int,
         page_size: int,
     ) -> tuple[list[CatalogPackage], int]:
@@ -219,6 +224,8 @@ class RegistryClient:
             params["search"] = search
         if category:
             params["category"] = category
+        if tag:
+            params["tag"] = tag
         try:
             response = self.session.get(
                 f"{self.base_url}/packages/", params=params, headers=self._headers(), timeout=self.timeout
@@ -241,6 +248,7 @@ class RegistryClient:
                     publisher_name=item.get("publisher_name"),
                     access=item.get("access"),
                     access_request_url=item.get("access_request_url"),
+                    tags=tuple(tag_item["slug"] for tag_item in item.get("tags") or ()),
                     languages=tuple(
                         CatalogLanguage(
                             language=lang["language"],

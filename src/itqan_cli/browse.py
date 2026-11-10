@@ -207,13 +207,18 @@ def access_footer(packages: list[CatalogPackage], has_api_key: bool) -> list[str
     return lines
 
 
+def kind_text(package: CatalogPackage) -> str:
+    """The category, narrowed by the tags of a text asset: `text: tafsir`."""
+    return f"{package.category}: {', '.join(package.tags)}" if package.tags else package.category
+
+
 def render_table(packages: list[CatalogPackage], targets: set[Target]) -> str:
     """Plain-text listing for pipes, CI and `--no-interactive`."""
     header = ("SLUG", "CATEGORY", "LANGUAGES", "LATEST", "ACCESS", "NAME")
     rows = [header] + [
         (
             ("* " if package.languages and not missing_languages(targets, package) else "") + package.slug,
-            package.category,
+            kind_text(package),
             _languages_text(package),
             _latest_text(package),
             _access_column(package),
@@ -231,6 +236,7 @@ def to_json(packages: list[CatalogPackage], targets: set[Target]) -> list[dict]:
             "slug": package.slug,
             "name": package.name,
             "category": package.category,
+            "tags": list(package.tags),
             "is_open_access": package.is_open_access,
             "access": package.access,
             "access_request_url": package.access_request_url,
@@ -261,7 +267,7 @@ def choice_titles(packages: list[CatalogPackage], reasons: list[str | None], max
     """One aligned row per package that fits in ``max_width`` columns, leaving
     room for the picker's ` (<reason>)` note on rows that can't be picked."""
     columns = [
-        (package.slug, package.category, _languages_text(package), _latest_text(package)) for package in packages
+        (package.slug, kind_text(package), _languages_text(package), _latest_text(package)) for package in packages
     ]
     widths = [max(len(row[col]) for row in columns) for col in range(4)]
     titles = []
