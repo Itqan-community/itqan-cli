@@ -164,7 +164,8 @@ The asset's name is the one `itqan browse` and each asset's page in the
 
 In `itqan browse`, type to filter the list, press Enter to add the highlighted asset, or press
 Space on several and then Enter. `itqan browse tafsir` starts with a search, and
-`itqan browse --category translation` shows one kind of asset.
+`itqan browse --tag translation` shows one kind of text asset (`--category font` does the same
+for the other categories).
 
 ## Use the assets in your app
 

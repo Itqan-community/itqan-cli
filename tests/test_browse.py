@@ -20,7 +20,8 @@ REGISTRY = "https://cms.itqan.dev"
 MULTILINGUAL = {
     "slug": "tafsir-jalalayn",
     "name": "Tafsir al-Jalalayn",
-    "category": "tafsir",
+    "category": "text",
+    "tags": [{"slug": "tafsir", "name": "Tafsir"}],
     "is_open_access": True,
     "publisher_name": "Publisher",
     "languages": [
@@ -87,6 +88,18 @@ def test_list_all_packages_where_catalog_has_two_pages_should_return_both():
 
     # Assert
     assert [package.slug for package in packages] == ["mushaf-madinah", "tafsir-jalalayn"]
+
+
+@responses.activate
+def test_list_all_packages_where_tag_given_should_send_it():
+    # Arrange
+    _mock_catalog([MULTILINGUAL], query={"page_size": "50", "tag": "tafsir"})
+
+    # Act
+    packages = RegistryClient(base_url=REGISTRY).list_all_packages(tag="tafsir")
+
+    # Assert
+    assert [package.tags for package in packages] == [("tafsir",)]
 
 
 @responses.activate
