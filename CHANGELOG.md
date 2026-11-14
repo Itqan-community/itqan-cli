@@ -1,3 +1,16 @@
+## v0.7.0 (2026-11-14)
+
+### BREAKING CHANGE
+
+- the registry now reports tafsirs and translations as category `text` with tags such as `tafsir`
+  or `translation`. `itqan browse --category tafsir` and `--category translation` now fail with
+  the registry's `category_renamed` error; use `--tag` instead.
+
+### Feat
+
+- `itqan browse` shows each package's tags, in the table and in `--json` output.
+- `itqan browse --tag/-t <tag>` filters the catalog by tag, for example `itqan browse --tag tafsir`.
+
 ## v0.6.0 (2026-11-03)
 
 ### Feat
