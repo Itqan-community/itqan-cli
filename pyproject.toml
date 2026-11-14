@@ -85,5 +85,6 @@ name = "cz_conventional_commits"
 version_provider = "pep621"
 version_scheme = "pep440"
 tag_format = "v$version"
+major_version_zero = true
 update_changelog_on_bump = true
 changelog_file = "CHANGELOG.md"
