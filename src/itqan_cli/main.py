@@ -865,8 +865,7 @@ def _find_package(client: RegistryClient, slug: str) -> CatalogPackage:
     "-o",
     "output_path",
     default=None,
-    help=f"Where to write the workflow. Default: .github/workflows/{autoupdate.WORKFLOW_FILE} "
-    "in the repository root.",
+    help=f"Where to write the workflow. Default: .github/workflows/{autoupdate.WORKFLOW_FILE} in the repository root.",
 )
 @click.option("--force", "-f", is_flag=True, default=False, help="Overwrite an existing workflow file.")
 def autoupdate_command(
@@ -984,6 +983,78 @@ def login_command(registry_url: str, api_key: str | None) -> None:
     else:
         who = f" as {account.email}"
     click.echo(f"Logged in to {registry_url}{who}. Key saved in {path}.")
+
+
+@cli.command("request-access", short_help="Ask a publisher for access to an asset that needs approval.")
+@click.argument("slug")
+@click.option(
+    "--intended-use",
+    "-u",
+    type=click.Choice(["commercial", "non-commercial"]),
+    default=None,
+    help="How you will use the asset; asked for in a terminal when omitted.",
+)
+@click.option("--purpose", "-p", default=None, help="Why you need it; the publisher sees this. Optional.")
+@click.option(
+    "--registry-url",
+    envvar="ITQAN_REGISTRY_URL",
+    default=DEFAULT_REGISTRY_URL,
+    show_default=True,
+    help="URL of the Itqan Package Registry API.",
+)
+@click.option("--api-key", envvar="ITQAN_API_KEY", default=None, help="API key; the one from `itqan login` by default.")
+def request_access_command(
+    slug: str, intended_use: str | None, purpose: str | None, registry_url: str, api_key: str | None
+) -> None:
+    """Request access to SLUG, an asset its publisher approves developer by developer.
+
+    Needs an API key (`itqan login`). Asking again while a request is pending
+    does nothing new; it only reports the status. Once the publisher approves,
+    `itqan install` can download the asset.
+    """
+    api_key = _api_key(api_key, registry_url)
+    if not api_key:
+        click.echo("Error: Requesting access needs an API key. Run `itqan login` first.", err=True)
+        sys.exit(1)
+    if intended_use is None:
+        if not _interactive_terminal():
+            click.echo("Error: Say how you will use it with --intended-use commercial|non-commercial.", err=True)
+            sys.exit(1)
+        intended_use = click.prompt(
+            "Intended use", type=click.Choice(["commercial", "non-commercial"]), default="non-commercial"
+        )
+    try:
+        result = RegistryClient(base_url=registry_url, api_key=api_key).request_access(
+            slug, intended_use=intended_use, purpose=purpose
+        )
+    except RegistryApiError as exc:
+        if exc.error_name == "access_not_required":
+            click.echo(f"{slug} is open access; no request is needed. Add it with `itqan add {slug}`.")
+            return
+        if exc.status_code == 401:
+            click.echo(f"Error: {registry_url} did not accept the API key. Run `itqan login` again.", err=True)
+        elif exc.status_code == 404:
+            click.echo(
+                f"Error: No asset named {slug!r} on {registry_url}. Search for it with `itqan browse {slug}`.",
+                err=True,
+            )
+        else:
+            click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+    except ItqanCliError as exc:
+        click.echo(f"Error: {exc.message}", err=True)
+        sys.exit(exc.exit_code)
+
+    if result.status == "approved":
+        click.echo(f"Access to {slug} is approved. Run `itqan add {slug}` to install it.")
+        return
+    if result.created:
+        click.echo(f"Requested access to {slug}; the publisher will review it.")
+    else:
+        click.echo(f"You already asked for access to {slug}; it is still {result.status}.")
+    if result.access_request_url:
+        click.echo(f"Follow it at {result.access_request_url}")
+    click.echo("Check the status with `itqan browse`; once it shows `granted`, run `itqan install`.")
 
 
 @cli.command("logout", short_help="Remove the saved API key.")

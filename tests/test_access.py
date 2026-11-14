@@ -180,3 +180,171 @@ def test_init_command_where_key_given_should_skip_assets_without_access(tmp_path
     text = (tmp_path / "itqan-assets.yaml").read_text()
     assert '"tafsir-granted"' in text
     assert "tafsir-none" not in text
+
+
+# --- request-access -------------------------------------------------------------
+
+
+def _mock_request_access(slug: str = "tafsir-x", *, status_code: int = 200, **body) -> None:
+    payload = (dict(body, slug=slug) if body else None) or {
+        "slug": slug,
+        "request_id": 7,
+        "status": "pending",
+        "created": True,
+        "access_request_url": f"https://cms.example/gallery/asset/{slug}",
+    }
+    responses.add(responses.POST, f"{REGISTRY}/packages/{slug}/request-access/", json=payload, status=status_code)
+
+
+@responses.activate
+def test_request_access_command_where_new_should_send_use_and_report_pending():
+    # Arrange
+    credentials.save_api_key(REGISTRY, KEY)
+    _mock_request_access()
+
+    # Act
+    result = _run("request-access", "tafsir-x", "-u", "commercial", "-p", "My app", "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "Requested access to tafsir-x" in result.output
+    assert "https://cms.example/gallery/asset/tafsir-x" in result.output
+    sent = responses.calls[0].request
+    assert json.loads(sent.body) == {"intended_use": "commercial", "purpose": "My app"}
+    assert sent.headers["X-API-Key"] == KEY
+
+
+@responses.activate
+def test_request_access_command_where_already_pending_should_say_so():
+    # Arrange
+    credentials.save_api_key(REGISTRY, KEY)
+    _mock_request_access(slug="tafsir-x", request_id=7, status="pending", created=False, access_request_url=None)
+
+    # Act
+    result = _run("request-access", "tafsir-x", "-u", "non-commercial", "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "already asked for access to tafsir-x; it is still pending" in result.output
+    assert json.loads(responses.calls[0].request.body) == {"intended_use": "non-commercial"}
+
+
+@responses.activate
+def test_request_access_command_where_auto_approved_should_point_to_add():
+    # Arrange
+    credentials.save_api_key(REGISTRY, KEY)
+    _mock_request_access(slug="tafsir-x", request_id=7, status="approved", created=True, access_request_url=None)
+
+    # Act
+    result = _run("request-access", "tafsir-x", "-u", "commercial", "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "approved" in result.output
+    assert "itqan add tafsir-x" in result.output
+
+
+def test_request_access_command_where_no_key_should_ask_to_log_in():
+    # Act
+    result = _run("request-access", "tafsir-x", "-u", "commercial", "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 1
+    assert "itqan login" in result.output
+
+
+@responses.activate
+def test_request_access_command_where_use_missing_and_not_interactive_should_fail_without_calling():
+    # Arrange
+    credentials.save_api_key(REGISTRY, KEY)
+
+    # Act
+    result = _run("request-access", "tafsir-x", "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 1
+    assert "--intended-use" in result.output
+    assert len(responses.calls) == 0
+
+
+@responses.activate
+def test_request_access_command_where_asset_open_should_say_no_request_needed():
+    # Arrange
+    credentials.save_api_key(REGISTRY, KEY)
+    _mock_request_access(
+        "mushaf-madinah",
+        status_code=409,
+        error_name="access_not_required",
+        message="mushaf-madinah is open access; no request is needed.",
+    )
+
+    # Act
+    result = _run("request-access", "mushaf-madinah", "-u", "commercial", "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 0, result.output
+    assert "open access" in result.output
+    assert "itqan add mushaf-madinah" in result.output
+
+
+@responses.activate
+@pytest.mark.parametrize(
+    ("status", "expected"),
+    [(401, "did not accept the API key"), (404, "No asset named 'tafsir-x'"), (500, "status 500")],
+)
+def test_request_access_command_where_registry_refuses_should_explain(status, expected):
+    # Arrange
+    credentials.save_api_key(REGISTRY, KEY)
+    _mock_request_access(status_code=status, error_name="x", message="nope")
+
+    # Act
+    result = _run("request-access", "tafsir-x", "-u", "commercial", "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 1
+    assert expected in result.output
+
+
+@pytest.mark.parametrize(
+    ("access", "has_key", "hint"),
+    [("none", True, "`itqan request-access tafsir-x`"), ("rejected", False, "(after `itqan login`)")],
+)
+def test_access_footer_where_request_possible_should_hint_the_command(access, has_key, hint):
+    # Arrange
+    package = _package(_gated("tafsir-x", access))
+
+    # Act
+    footer = "\n".join(browse.access_footer([package], has_api_key=has_key))
+
+    # Assert
+    assert hint in footer
+
+
+def test_access_footer_where_request_already_pending_should_not_hint_the_command():
+    # Act
+    footer = "\n".join(browse.access_footer([_package(_gated("tafsir-x", "pending"))], has_api_key=True))
+
+    # Assert
+    assert "request-access" not in footer
+
+
+@responses.activate
+def test_install_command_where_access_not_requested_should_hint_request_access(tmp_path: Path):
+    # Arrange
+    manifest = tmp_path / "itqan-assets.yaml"
+    manifest.write_text('schema_version: 1\nassets:\n  tafsir-x:\n    version: "^2.0.0"\n')
+    credentials.save_api_key(REGISTRY, KEY)
+    responses.add(
+        responses.POST,
+        f"{REGISTRY}/packages/resolve/manifest/",
+        json={"error_name": "access_denied", "message": "No approved access request."},
+        status=403,
+    )
+    _mock_catalog([_gated("tafsir-x", "none")])
+
+    # Act
+    result = _run("install", "-m", str(manifest), "-l", str(tmp_path / "itqan-assets.lock"), "--registry-url", REGISTRY)
+
+    # Assert
+    assert result.exit_code == 1
+    assert "itqan request-access tafsir-x" in result.output

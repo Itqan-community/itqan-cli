@@ -1,3 +1,13 @@
+## Unreleased
+
+### Feat
+
+- `itqan request-access <asset>` asks a publisher for access to an asset that needs approval, with
+  `--intended-use` and `--purpose`. It needs an API key and is safe to repeat: a pending request is
+  reported, not duplicated. It needs a registry that has `POST /packages/{slug}/request-access/`.
+- When `itqan install`, `itqan add` or `itqan browse` list assets you can't download yet, they now
+  also show the `itqan request-access` command for those you haven't requested.
+
 ## v0.7.0 (2026-11-14)
 
 ### BREAKING CHANGE
