@@ -202,6 +202,12 @@ def access_footer(packages: list[CatalogPackage], has_api_key: bool) -> list[str
     width = max(len(p.slug) for p in blocked)
     lines = ["", "Request access on each asset's page:"]
     lines += [f"  {p.slug.ljust(width)}  {p.access_request_url or '-'}  ({access_label(p)})" for p in blocked]
+    requestable = [p.slug for p in blocked if p.access in ("none", "rejected")]
+    if requestable:
+        lines.append(
+            f"Or request it from here: `itqan request-access {requestable[0]}`"
+            + (" (after `itqan login`)" if not has_api_key else "")
+        )
     if not has_api_key:
         lines.append("Already approved? Run `itqan login` to use your API key.")
     return lines

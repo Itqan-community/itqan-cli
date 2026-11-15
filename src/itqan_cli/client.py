@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from urllib.parse import quote
 
 import requests
 
@@ -73,6 +74,16 @@ class Account:
 
     name: str
     email: str
+
+
+@dataclass(frozen=True, slots=True)
+class AccessRequestResult:
+    """The registry's answer to POST /packages/{slug}/request-access/."""
+
+    slug: str
+    status: str  # pending | approved | rejected
+    created: bool  # False when an earlier request was returned instead of a new one
+    access_request_url: str | None = None
 
 
 def parse_structure(raw: object) -> PackageStructure | None:
@@ -286,6 +297,50 @@ class RegistryClient:
             return Account(name=body["name"], email=body["email"])
         except (ValueError, KeyError, TypeError) as exc:
             raise RegistryApiError(f"Failed to parse API key check response: {exc}") from exc
+
+    def request_access(self, slug: str, *, intended_use: str, purpose: str | None = None) -> AccessRequestResult:
+        """Call POST /packages/{slug}/request-access/ to ask the publisher for access.
+
+        Raises:
+            RegistryApiError with the registry's message; status_code 401 when the
+                key is missing or invalid, 404 for an unknown asset (or a registry
+                without the endpoint), 409 error_name `access_not_required` for an
+                open asset.
+        """
+        body = {"intended_use": intended_use}
+        if purpose:
+            body["purpose"] = purpose
+        try:
+            response = self.session.post(
+                f"{self.base_url}/packages/{quote(slug, safe='')}/request-access/",
+                json=body,
+                headers=self._headers(),
+                timeout=self.timeout,
+            )
+        except requests.RequestException as exc:
+            raise RegistryApiError(f"Failed to connect to package registry at {self.base_url}: {exc}") from exc
+        if response.status_code != 200:
+            error_name: str | None = None
+            try:
+                err = response.json()
+                error_name = err.get("error_name") if isinstance(err, dict) else None
+            except ValueError:
+                pass
+            raise RegistryApiError(
+                f"Access request failed with status {response.status_code}{_error_detail(response)}",
+                status_code=response.status_code,
+                error_name=error_name,
+            )
+        try:
+            data = response.json()
+            return AccessRequestResult(
+                slug=data["slug"],
+                status=data["status"],
+                created=bool(data["created"]),
+                access_request_url=data.get("access_request_url"),
+            )
+        except (ValueError, KeyError, TypeError) as exc:
+            raise RegistryApiError(f"Failed to parse access request response: {exc}") from exc
 
     def resolve_manifest(self, assets: dict[str, str | dict[str, str]]) -> list[ResolvedAssetPayload]:
         """Call POST /packages/resolve/manifest/ to resolve manifest constraints.

@@ -316,19 +316,28 @@ never leaves a lockfile that doesn't match your files.
 
 Some publishers approve each developer before their assets can be downloaded.
 
-1. `itqan browse` lists these assets too, marked `request access`, `access pending` or
-   `access rejected`, with a link to the asset's page on cms.itqan.dev. Request access there.
-2. Once you're approved, create an API key at
-   [cms.itqan.dev/account/api-keys](https://cms.itqan.dev/account/api-keys) and save it:
+1. Create an API key at [cms.itqan.dev/account/api-keys](https://cms.itqan.dev/account/api-keys)
+   and save it:
 
    ```bash
    itqan login
    ```
 
-3. The asset now shows as `granted` in `itqan browse`, and `itqan install` can download it.
+2. `itqan browse` lists these assets too, marked `request access`, `access pending` or
+   `access rejected`. Ask for access from the terminal:
 
-If `itqan install` hits an asset you can't download yet, it says which one and where to request
-access. In CI, pass the key in the `ITQAN_API_KEY` environment variable instead of
+   ```bash
+   itqan request-access tafsir-jalalayn --intended-use non-commercial --purpose "Study app"
+   ```
+
+   It asks for the intended use (`commercial` or `non-commercial`) when you leave the flag out.
+   Running it again while the request is pending only reports its status. You can also request
+   access on the asset's page on cms.itqan.dev.
+3. Once the publisher approves (some approve at once), the asset shows as `granted` in
+   `itqan browse`, and `itqan install` can download it.
+
+If `itqan install` hits an asset you can't download yet, it says which one, where to request
+access and the `itqan request-access` command to run. In CI, pass the key in the `ITQAN_API_KEY` environment variable instead of
 `itqan login`.
 
 ## CI
@@ -433,6 +442,7 @@ example, `npm ci` for a project with `itqan-cli` in its `devDependencies`, or
 | `itqan autoupdate` | Write a GitHub Actions workflow that opens a pull request when `itqan install --force` finds newer allowed versions (see [Get a pull request when assets have new versions](#get-a-pull-request-when-assets-have-new-versions)). `--schedule` sets when it runs; `--force` overwrites an existing workflow. |
 | `itqan outdated` | List the locked assets that have newer versions: the newest your range allows and the newest overall. `--json` prints JSON. |
 | `itqan login` | Save your API key for the registry, after checking it. `--api-key` passes the key without the prompt. |
+| `itqan request-access ASSET` | Ask the publisher for access to an asset that needs approval; needs a key from `itqan login`. `--intended-use` (`commercial` or `non-commercial`, asked for in a terminal when omitted) and `--purpose` go to the publisher. Safe to repeat: a pending request is not duplicated. |
 | `itqan logout` | Remove the saved key. |
 | `itqan --version` | Print the CLI version. |
 
