@@ -34,7 +34,7 @@ assets:
 
 _FALLBACK_ENTRIES = """\
   # {reason} so these are examples: replace the slugs with real ones
-  # from the asset library at https://cms.itqan.dev, then uncomment.
+  # from the asset library at https://fanar.itqan.dev, then uncomment.
   #
   # "tafsir-example":
   #   version: "^1.0.0"

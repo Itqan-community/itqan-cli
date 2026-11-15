@@ -109,7 +109,7 @@ def _label(raw: object) -> str:
     return raw if isinstance(raw, str) else ""
 
 
-# The public API (not the cms.itqan.dev website, which serves the web app).
+# The public API (not the fanar.itqan.dev website, which serves the web app).
 DEFAULT_REGISTRY_URL = "https://api.cms.itqan.dev"
 
 

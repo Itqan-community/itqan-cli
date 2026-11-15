@@ -936,7 +936,7 @@ def autoupdate_command(
 
 
 # Where users create API keys in the CMS web app.
-API_KEYS_PAGE = "https://cms.itqan.dev/account/api-keys"
+API_KEYS_PAGE = "https://fanar.itqan.dev/account/api-keys"
 
 
 @cli.command("login", short_help="Save your API key for assets that need approval.")
