@@ -14,7 +14,7 @@
 
 **Itqan Quranic Asset Manager**
 
-`itqan` adds [Itqan](https://cms.itqan.dev) Quranic data, such as mushafs, tafsirs,
+`itqan` adds [Fanar](https://fanar.itqan.dev) Quranic data, such as mushafs, tafsirs,
 translations and fonts, to your app's project, the way npm or pub adds code libraries.
 
 1. You list the assets you want, and which versions you accept, in `itqan-assets.yaml`.
@@ -160,7 +160,7 @@ itqan add tafsir-jalalayn@~2.1             # your own version range
 ```
 
 The asset's name is the one `itqan browse` and each asset's page in the
-[asset library](https://cms.itqan.dev) show. `--no-install` only edits the manifest.
+[asset library](https://fanar.itqan.dev) show. `--no-install` only edits the manifest.
 
 In `itqan browse`, type to filter the list, press Enter to add the highlighted asset, or press
 Space on several and then Enter. `itqan browse tafsir` starts with a search, and
@@ -317,9 +317,9 @@ never leaves a lockfile that doesn't match your files.
 Some publishers approve each developer before their assets can be downloaded.
 
 1. `itqan browse` lists these assets too, marked `request access`, `access pending` or
-   `access rejected`, with a link to the asset's page on cms.itqan.dev. Request access there.
+   `access rejected`, with a link to the asset's page on fanar.itqan.dev. Request access there.
 2. Once you're approved, create an API key at
-   [cms.itqan.dev/account/api-keys](https://cms.itqan.dev/account/api-keys) and save it:
+   [fanar.itqan.dev/account/api-keys](https://fanar.itqan.dev/account/api-keys) and save it:
 
    ```bash
    itqan login

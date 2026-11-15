@@ -1,6 +1,6 @@
 # itqan_cli
 
-Install and pin [Itqan](https://cms.itqan.dev) Quranic assets (mushafs, tafsirs, translations,
+Install and pin [Fanar](https://fanar.itqan.dev) Quranic assets (mushafs, tafsirs, translations,
 fonts) in your Dart or Flutter project, the way a package manager does for code.
 
 ```bash
