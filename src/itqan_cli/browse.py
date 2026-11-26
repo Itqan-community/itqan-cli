@@ -208,8 +208,10 @@ def access_footer(packages: list[CatalogPackage], has_api_key: bool) -> list[str
 
 
 def kind_text(package: CatalogPackage) -> str:
-    """The category, narrowed by the tags of a text asset: `text: tafsir`."""
-    return f"{package.category}: {', '.join(package.tags)}" if package.tags else package.category
+    """The category, narrowed by the tags of a text asset (`text: tafsir`) and the
+    timing level of a timed recitation (`recitation (ayah timing)`)."""
+    kind = f"{package.category}: {', '.join(package.tags)}" if package.tags else package.category
+    return f"{kind} ({package.timing_level} timing)" if package.timing_level else kind
 
 
 def render_table(packages: list[CatalogPackage], targets: set[Target]) -> str:
@@ -237,6 +239,7 @@ def to_json(packages: list[CatalogPackage], targets: set[Target]) -> list[dict]:
             "name": package.name,
             "category": package.category,
             "tags": list(package.tags),
+            "timing_level": package.timing_level,
             "is_open_access": package.is_open_access,
             "access": package.access,
             "access_request_url": package.access_request_url,

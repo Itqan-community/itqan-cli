@@ -65,6 +65,9 @@ class CatalogPackage:
     access_request_url: str | None = None
     # Text assets: what kind of text it holds (tafsir, translation, ...). Slugs only.
     tags: tuple[str, ...] = ()
+    # Recitations: the finest timing they have (ayah | word | sentence); None without
+    # timings, for other categories, or from a registry that predates it.
+    timing_level: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -249,6 +252,7 @@ class RegistryClient:
                     access=item.get("access"),
                     access_request_url=item.get("access_request_url"),
                     tags=tuple(tag_item["slug"] for tag_item in item.get("tags") or ()),
+                    timing_level=item.get("timing_level"),
                     languages=tuple(
                         CatalogLanguage(
                             language=lang["language"],
