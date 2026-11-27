@@ -155,6 +155,40 @@ assets:
 
 
 @responses.activate
+def test_install_command_where_api_key_rejected_should_tell_how_to_fix_it_without_more_calls(
+    runner: CliRunner, tmp_path: Path
+):
+    manifest_path = tmp_path / "itqan-assets.yaml"
+    manifest_path.write_bytes(b"""schema_version: 1
+assets:
+  quran-uthmani-hafs:
+    version: "^2.1.0"
+""")
+    registry_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.POST,
+        f"{registry_url}/packages/resolve/manifest/",
+        json={
+            "error_name": "invalid_api_key",
+            "message": "The API key is not valid or has been revoked.",
+            "extra": None,
+        },
+        status=401,
+    )
+
+    result = runner.invoke(
+        cli,
+        ["install", "--manifest", str(manifest_path), "--registry-url", registry_url, "--api-key", "stale.key"],
+    )
+
+    assert result.exit_code == 1
+    assert "rejected your API key" in result.output
+    assert "itqan login" in result.output
+    # No catalog lookup to explain access: it would fail on the same key.
+    assert [call.request.method for call in responses.calls] == ["POST"]
+
+
+@responses.activate
 def test_install_command_where_locked_version_withdrawn_should_install_it_and_warn(runner: CliRunner, tmp_path: Path):
     manifest_path = tmp_path / "itqan-assets.yaml"
     lockfile_path = tmp_path / "itqan-assets.lock"

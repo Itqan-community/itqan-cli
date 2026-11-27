@@ -124,6 +124,26 @@ def _error_detail(response: requests.Response) -> str:
     return f": {reason}" if reason else ""
 
 
+INVALID_API_KEY = "invalid_api_key"
+INVALID_API_KEY_MESSAGE = (
+    "The registry rejected your API key: it is not valid, was revoked or has expired. "
+    "Run `itqan login` with a new key, or `itqan logout` (and drop --api-key / ITQAN_API_KEY) "
+    "to continue without one."
+)
+
+
+def _raise_if_invalid_key(response: requests.Response) -> None:
+    """Turn the registry's `401 invalid_api_key` into one clear, actionable error."""
+    if response.status_code != 401:
+        return
+    try:
+        body = response.json()
+    except ValueError:
+        return
+    if isinstance(body, dict) and body.get("error_name") == INVALID_API_KEY:
+        raise RegistryApiError(INVALID_API_KEY_MESSAGE, status_code=401, error_name=INVALID_API_KEY)
+
+
 class RegistryClient:
     """HTTP Client for Itqan Package Registry API."""
 
@@ -232,6 +252,7 @@ class RegistryClient:
             )
         except requests.RequestException as exc:
             raise RegistryApiError(f"Failed to connect to package registry at {self.base_url}: {exc}") from exc
+        _raise_if_invalid_key(response)
         if response.status_code != 200:
             raise RegistryApiError(
                 f"Registry catalog request failed with status {response.status_code}{_error_detail(response)}",
@@ -276,6 +297,7 @@ class RegistryClient:
             response = self.session.get(f"{self.base_url}/packages/me/", headers=self._headers(), timeout=self.timeout)
         except requests.RequestException as exc:
             raise RegistryApiError(f"Failed to connect to package registry at {self.base_url}: {exc}") from exc
+        _raise_if_invalid_key(response)
         if response.status_code != 200:
             raise RegistryApiError(
                 f"API key check failed with status {response.status_code}{_error_detail(response)}",
@@ -359,6 +381,7 @@ class RegistryClient:
                 raise RegistryApiError(f"Failed to parse registry API response: {exc}") from exc
 
         # Handle API Error responses
+        _raise_if_invalid_key(response)
         status_code = response.status_code
         error_name: str | None = None
         message = f"Registry request failed with status {status_code}"
