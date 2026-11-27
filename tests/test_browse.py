@@ -198,6 +198,42 @@ def test_render_table_where_no_published_version_should_not_mark_it_in_manifest(
     assert "* " not in row
 
 
+def test_kind_text_where_recitation_has_timing_level_should_show_it():
+    # Arrange
+    package = CatalogPackage(
+        slug="husary", name="Husary", category="recitation", is_open_access=True, languages=(), timing_level="ayah"
+    )
+
+    # Act
+    kind = browse.kind_text(package)
+
+    # Assert
+    assert kind == "recitation (ayah timing)"
+
+
+def test_kind_text_where_no_timing_level_should_show_only_the_category():
+    # Arrange
+    package = _package(SINGLE)
+
+    # Act
+    kind = browse.kind_text(package)
+
+    # Assert
+    assert kind == "mushaf"
+
+
+@responses.activate
+def test_list_packages_where_catalog_reports_timing_level_should_parse_it():
+    # Arrange
+    _mock_catalog([{**SINGLE, "timing_level": "ayah"}, MULTILINGUAL])
+
+    # Act
+    packages = RegistryClient(REGISTRY).list_packages(page_size=50)
+
+    # Assert
+    assert [p.timing_level for p in packages] == ["ayah", None]
+
+
 # --- editing the manifest -------------------------------------------------------
 
 
