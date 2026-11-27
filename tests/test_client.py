@@ -61,6 +61,46 @@ def test_resolve_manifest_where_api_key_missing_should_raise_registry_api_error_
 
 
 @responses.activate
+def test_resolve_manifest_where_api_key_rejected_should_raise_invalid_api_key_error():
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.POST,
+        f"{base_url}/packages/resolve/manifest/",
+        json={"error_name": "invalid_api_key", "message": "The API key has expired.", "extra": None},
+        status=401,
+    )
+
+    client = RegistryClient(base_url=base_url, api_key="stale.key")
+    with pytest.raises(RegistryApiError) as exc_info:
+        client.resolve_manifest({"quran": "1.0.0"})
+
+    assert (exc_info.value.status_code, exc_info.value.error_name) == (401, "invalid_api_key")
+    assert "itqan login" in exc_info.value.message
+
+
+@responses.activate
+def test_list_all_packages_where_api_key_rejected_should_raise_invalid_api_key_error():
+    base_url = "https://api.itqan.dev/api"
+    responses.add(
+        responses.GET,
+        f"{base_url}/packages/",
+        json={
+            "error_name": "invalid_api_key",
+            "message": "The API key is not valid or has been revoked.",
+            "extra": None,
+        },
+        status=401,
+    )
+
+    client = RegistryClient(base_url=base_url, api_key="stale.key")
+    with pytest.raises(RegistryApiError) as exc_info:
+        client.list_all_packages()
+
+    assert (exc_info.value.status_code, exc_info.value.error_name) == (401, "invalid_api_key")
+    assert "rejected your API key" in exc_info.value.message
+
+
+@responses.activate
 def test_resolve_manifest_where_asset_access_denied_should_raise_registry_api_error_403():
     base_url = "https://api.itqan.dev/api"
     responses.add(

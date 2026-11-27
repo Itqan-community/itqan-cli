@@ -13,7 +13,14 @@ import tempfile
 import click
 
 from itqan_cli import add, autoupdate, browse, credentials, flutter as flutter_pubspec, progress, updates
-from itqan_cli.client import DEFAULT_REGISTRY_URL, CatalogLanguage, CatalogPackage, RegistryClient, ResolvedAssetPayload
+from itqan_cli.client import (
+    DEFAULT_REGISTRY_URL,
+    INVALID_API_KEY,
+    CatalogLanguage,
+    CatalogPackage,
+    RegistryClient,
+    ResolvedAssetPayload,
+)
 from itqan_cli.columns_comment import refresh_blocks
 from itqan_cli.downloader import AssetDownloader
 from itqan_cli.exceptions import ItqanCliError, ManifestError, RegistryApiError
@@ -309,7 +316,8 @@ def install_command(
         sys.exit(exit_code)
     except ItqanCliError as exc:
         click.echo(f"Error: {exc.message}", err=True)
-        if isinstance(exc, RegistryApiError) and exc.status_code in (401, 403):
+        # A rejected key fails every catalog call too, so there is nothing more to explain.
+        if isinstance(exc, RegistryApiError) and exc.status_code in (401, 403) and exc.error_name != INVALID_API_KEY:
             _explain_access(Path(manifest_path), registry_url, api_key)
         sys.exit(exc.exit_code)
     except Exception as exc:
